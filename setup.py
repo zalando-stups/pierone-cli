@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-AWS Account Configurator
+Pier One CLI
 """
 
 import sys
