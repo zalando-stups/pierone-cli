@@ -2,12 +2,12 @@
 Pier One CLI
 ============
 
-.. image:: https://travis-ci.org/zalando-stups/pierone.svg?branch=master
-   :target: https://travis-ci.org/zalando-stups/pierone
+.. image:: https://travis-ci.org/zalando-stups/pierone-cli.svg?branch=master
+   :target: https://travis-ci.org/zalando-stups/pierone-cli
    :alt: Build Status
 
-.. image:: https://coveralls.io/repos/zalando-stups/pierone/badge.svg
-   :target: https://coveralls.io/r/zalando-stups/pierone
+.. image:: https://coveralls.io/repos/zalando-stups/pierone-cli/badge.svg
+   :target: https://coveralls.io/r/zalando-stups/pierone-cli
    :alt: Code Coverage
 
 .. image:: https://img.shields.io/pypi/dw/stups-pierone.svg
