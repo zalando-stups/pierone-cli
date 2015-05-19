@@ -2,12 +2,13 @@ import datetime
 import os
 
 import click
+
 import requests
 import yaml
 from zign.api import get_named_token
 from clickclick import error, AliasedGroup, print_table, OutputFormat
 
-from .api import docker_login
+from .api import docker_login, request
 import pierone
 
 
@@ -78,10 +79,6 @@ def login(obj, url, realm, name, user, password):
         yaml.dump(config, fd)
 
     docker_login(url, realm, name, user, password)
-
-
-def request(url, path, access_token):
-    return requests.get(url + path, headers={'Authorization': 'Bearer {}'.format(access_token)})
 
 
 @cli.command()

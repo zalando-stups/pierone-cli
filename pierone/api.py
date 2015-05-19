@@ -2,6 +2,7 @@ import codecs
 import json
 import os
 from clickclick import Action
+import requests
 import yaml
 from zign.api import get_named_token
 
@@ -22,3 +23,7 @@ def docker_login(url, realm, name, user, password, token_url=None, use_keyring=T
     with Action('Storing Docker client configuration in {}..'.format(path)):
         with open(path, 'w') as fd:
             json.dump(dockercfg, fd)
+
+
+def request(url, path, access_token):
+    return requests.get(url + path, headers={'Authorization': 'Bearer {}'.format(access_token)}, timeout=10)
