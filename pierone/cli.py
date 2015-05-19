@@ -1,16 +1,15 @@
-import codecs
 import datetime
-import json
-import click
 import os
+
+import click
 import requests
 import yaml
+from zign.api import get_named_token
+from clickclick import error, AliasedGroup, print_table, OutputFormat
 
+from .api import docker_login
 import pierone
 
-from zign.api import get_named_token
-
-from clickclick import error, AliasedGroup, print_table, OutputFormat, Action
 
 KEYRING_KEY = 'pierone'
 CONFIG_DIR_PATH = click.get_app_dir('pierone')
@@ -78,27 +77,7 @@ def login(obj, url, realm, name, user, password):
     with open(CONFIG_FILE_PATH, 'w') as fd:
         yaml.dump(config, fd)
 
-    with Action('Getting OAuth2 token "{}"..'.format(name)):
-        token = get_named_token(['uid'], realm, name, user, password)
-
-    access_token = token.get('access_token')
-
-    path = os.path.expanduser('~/.dockercfg')
-
-    try:
-        with open(path) as fd:
-            dockercfg = yaml.safe_load(fd)
-    except:
-        dockercfg = {}
-
-    basic_auth = codecs.encode('oauth2:{}'.format(access_token).encode('utf-8'), 'base64').strip().decode('utf-8')
-
-    dockercfg[url] = {'auth': basic_auth,
-                      'email': 'no-mail-required@example.org'}
-
-    with Action('Storing Docker client configuration in {}..'.format(path)):
-        with open(path, 'w') as fd:
-            json.dump(dockercfg, fd)
+    docker_login(url, realm, name, user, password)
 
 
 def request(url, path, access_token):
