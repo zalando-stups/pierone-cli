@@ -2,9 +2,41 @@ import codecs
 import json
 import os
 from clickclick import Action
+import collections
 import requests
 import yaml
-from zign.api import get_named_token
+from zign.api import get_named_token, get_existing_token
+
+
+class Unauthorized(Exception):
+    def __str__(self):
+        return 'Unauthorized: token missing or invalid'
+
+
+class DockerImage(collections.namedtuple('DockerImage', 'registry team artifact tag')):
+    @classmethod
+    def parse(cls, image: str):
+        '''
+        >>> DockerImage.parse('foo/bar')
+        DockerImage(registry=None, team='foo', artifact='bar', tag='')
+        >>> DockerImage.parse('registry/foo/bar:1.9')
+        DockerImage(registry='registry', team='foo', artifact='bar', tag='1.9')
+        '''
+        parts = image.split('/')
+        if len(parts) == 3:
+            registry = parts[0]
+        else:
+            registry = None
+        team = parts[-2]
+        artifact, sep, tag = parts[-1].partition(':')
+        return DockerImage(registry=registry, team=team, artifact=artifact, tag=tag)
+
+    def __str__(self):
+        '''
+        >>> str(DockerImage(registry='registry', team='foo', artifact='bar', tag='1.9'))
+        'registry/foo/bar:1.9'
+        '''
+        return '{}/{}/{}:{}'.format(*tuple(self))
 
 
 def docker_login(url, realm, name, user, password, token_url=None, use_keyring=True):
@@ -27,3 +59,19 @@ def docker_login(url, realm, name, user, password, token_url=None, use_keyring=T
 
 def request(url, path, access_token):
     return requests.get(url + path, headers={'Authorization': 'Bearer {}'.format(access_token)}, timeout=10)
+
+
+def image_exists(token_name: str, image: DockerImage) -> bool:
+    token = get_existing_token(token_name)
+    if not token:
+        raise Unauthorized()
+
+    url = 'https://{}'.format(image.registry)
+    path = '/v1/repositories/{team}/{artifact}/tags'.format(team=image.team, artifact=image.artifact)
+
+    try:
+        r = request(url, path, token['access_token'])
+    except:
+        return False
+    result = r.json()
+    return image.tag in result
