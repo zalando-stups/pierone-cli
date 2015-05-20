@@ -17,6 +17,9 @@ class DockerImage(collections.namedtuple('DockerImage', 'registry team artifact 
     @classmethod
     def parse(cls, image: str):
         '''
+        >>> DockerImage.parse('x')
+        Traceback (most recent call last):
+        ValueError: Invalid docker image "x" (format must be [REGISTRY/]TEAM/ARTIFACT:TAG)
         >>> DockerImage.parse('foo/bar')
         DockerImage(registry=None, team='foo', artifact='bar', tag='')
         >>> DockerImage.parse('registry/foo/bar:1.9')
@@ -25,6 +28,8 @@ class DockerImage(collections.namedtuple('DockerImage', 'registry team artifact 
         parts = image.split('/')
         if len(parts) == 3:
             registry = parts[0]
+        elif len(parts) < 2:
+            raise ValueError('Invalid docker image "{}" (format must be [REGISTRY/]TEAM/ARTIFACT:TAG)'.format(image))
         else:
             registry = None
         team = parts[-2]
