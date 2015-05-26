@@ -81,12 +81,20 @@ def login(obj, url, realm, name, user, password):
     docker_login(url, realm, name, user, password)
 
 
+def get_token():
+    try:
+        token = get_named_token(['uid'], None, 'pierone', None, None)
+    except:
+        raise click.UsageError('No valid OAuth token named "pierone" found. Please use "pierone login".')
+    return token
+
+
 @cli.command()
 @output_option
 @click.pass_obj
 def teams(config, output):
     '''List all teams having artifacts in Pier One'''
-    token = get_named_token(['uid'], None, 'pierone', None, None)
+    token = get_token()
 
     r = request(config.get('url'), '/teams', token['access_token'])
     rows = [{'name': name} for name in sorted(r.json())]
@@ -105,7 +113,7 @@ def get_artifacts(url, team, access_token):
 @click.pass_obj
 def artifacts(config, team, output):
     '''List all team artifacts'''
-    token = get_named_token(['uid'], None, 'pierone', None, None)
+    token = get_token()
 
     result = get_artifacts(config.get('url'), team, token['access_token'])
     rows = [{'team': team, 'artifact': name} for name in sorted(result)]
@@ -120,7 +128,7 @@ def artifacts(config, team, output):
 @click.pass_obj
 def tags(config, team, artifact, output):
     '''List all tags'''
-    token = get_named_token(['uid'], None, 'pierone', None, None)
+    token = get_token()
 
     if not artifact:
         artifact = get_artifacts(config.get('url'), team, token['access_token'])
