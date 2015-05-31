@@ -106,6 +106,9 @@ def get_artifacts(url, team, access_token):
     r = request(url, '/teams/{}/artifacts'.format(team), access_token)
     return r.json()
 
+def get_tags(url, team, art, access_token):
+    r = request(url, '/teams/{}/artifacts/{}/tags'.format(team, art), access_token)
+    return r.json()
 
 @cli.command()
 @click.argument('team')
@@ -135,19 +138,46 @@ def tags(config, team, artifact, output):
 
     rows = []
     for art in artifact:
-        r = request(config.get('url'), '/teams/{}/artifacts/{}/tags'.format(team, art), token['access_token'])
+        r = get_tags(config.get('url'), team, art, token['access_token'])
         rows.extend([{'team': team,
                       'artifact': art,
                       'tag': row['name'],
                       'created_by': row['created_by'],
                       'created_time': datetime.datetime.strptime(row['created'], '%Y-%m-%dT%H:%M:%S.%f%z').timestamp()}
-                     for row in r.json()])
+                     for row in r])
 
     rows.sort(key=lambda row: (row['team'], row['artifact'], row['tag']))
     with OutputFormat(output):
         print_table(['team', 'artifact', 'tag', 'created_time', 'created_by'], rows,
                     titles={'created_time': 'Created', 'created_by': 'By'})
 
+
+@cli.command()
+@click.argument('team')
+@click.argument('artifact')
+@click.argument('tag', nargs=-1)
+@output_option
+@click.pass_obj
+def scm(config, team, artifact, tag, output):
+    '''Get scm information'''
+    token = get_token()
+
+    if not tag:
+        tag = [t['name'] for t in get_tags(config.get('url'), team, artifact, token['access_token'])]
+
+    rows = []
+    for t in tag:
+        row = request(config.get('url'), '/teams/{}/artifacts/{}/tags/{}/scm-source'.format(team, artifact, t), token['access_token']).json()
+        rows.append({'tag': t,
+                      'author': row['author'],
+                      'created_time': datetime.datetime.strptime(row['created'], '%Y-%m-%dT%H:%M:%S.%f%z').timestamp(),
+                      'revision': row['revision'],
+                      'status': row['status']})
+
+    rows.sort(key=lambda row: (row['tag'], row['created_time']))
+    with OutputFormat(output):
+        print_table(['tag', 'author', 'created_time', 'revision', 'status'], rows,
+                    titles={'tag': 'Tag', 'author': 'By', 'created_time': 'Created', 'revision': 'Revision', 'status': 'Status'})
 
 def main():
     cli()
