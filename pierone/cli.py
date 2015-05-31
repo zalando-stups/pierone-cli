@@ -106,9 +106,11 @@ def get_artifacts(url, team, access_token):
     r = request(url, '/teams/{}/artifacts'.format(team), access_token)
     return r.json()
 
+
 def get_tags(url, team, art, access_token):
     r = request(url, '/teams/{}/artifacts/{}/tags'.format(team, art), access_token)
     return r.json()
+
 
 @cli.command()
 @click.argument('team')
@@ -152,32 +154,40 @@ def tags(config, team, artifact, output):
                     titles={'created_time': 'Created', 'created_by': 'By'})
 
 
-@cli.command()
+@cli.command('scm-source')
 @click.argument('team')
 @click.argument('artifact')
 @click.argument('tag', nargs=-1)
 @output_option
 @click.pass_obj
-def scm(config, team, artifact, tag, output):
-    '''Get scm information'''
+def scm_source(config, team, artifact, tag, output):
+    '''Show SCM source information such as GIT revision'''
     token = get_token()
 
+    tags = get_tags(config.get('url'), team, artifact, token['access_token'])
+
     if not tag:
-        tag = [t['name'] for t in get_tags(config.get('url'), team, artifact, token['access_token'])]
+        tag = [t['name'] for t in tags]
 
     rows = []
     for t in tag:
-        row = request(config.get('url'), '/teams/{}/artifacts/{}/tags/{}/scm-source'.format(team, artifact, t), token['access_token']).json()
-        rows.append({'tag': t,
-                      'author': row['author'],
-                      'created_time': datetime.datetime.strptime(row['created'], '%Y-%m-%dT%H:%M:%S.%f%z').timestamp(),
-                      'revision': row['revision'],
-                      'status': row['status']})
+        row = request(config.get('url'), '/teams/{}/artifacts/{}/tags/{}/scm-source'.format(team, artifact, t),
+                      token['access_token']).json()
+        if not row:
+            row = {}
+        row['tag'] = t
+        matching_tag = [d for d in tags if d['name'] == t]
+        row['created_by'] = ''.join([d['created_by'] for d in matching_tag])
+        row['created_time'] = datetime.datetime.strptime(''.join([d['created'] for d in matching_tag]),
+                                                         '%Y-%m-%dT%H:%M:%S.%f%z').timestamp()
+        rows.append(row)
 
-    rows.sort(key=lambda row: (row['tag'], row['created_time']))
+    rows.sort(key=lambda row: (row['tag'], row.get('created_time')))
     with OutputFormat(output):
-        print_table(['tag', 'author', 'created_time', 'revision', 'status'], rows,
-                    titles={'tag': 'Tag', 'author': 'By', 'created_time': 'Created', 'revision': 'Revision', 'status': 'Status'})
+        print_table(['tag', 'author', 'url', 'revision', 'status', 'created_time', 'created_by'], rows,
+                    titles={'tag': 'Tag', 'created_by': 'By', 'created_time': 'Created',
+                            'url': 'URL', 'revision': 'Revision', 'status': 'Status'})
+
 
 def main():
     cli()
