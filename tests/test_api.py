@@ -1,6 +1,6 @@
 import json
 import os
-from mock import MagicMock
+from unittest.mock import MagicMock
 import yaml
 from pierone.api import docker_login
 
