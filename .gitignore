@@ -8,3 +8,5 @@ coverage.xml
 .coverage
 .idea
 htmlcov/
+.python-version
+virtualenv
