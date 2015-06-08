@@ -15,17 +15,20 @@ def test_version(monkeypatch):
 
 
 def test_login(monkeypatch, tmpdir):
+    response = MagicMock()
+
     runner = CliRunner()
 
     monkeypatch.setattr('pierone.cli.CONFIG_FILE_PATH', 'config.yaml')
     monkeypatch.setattr('pierone.api.get_named_token', MagicMock(return_value={'access_token': 'tok123'}))
     monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
+    monkeypatch.setattr('requests.get', MagicMock(return_value=response))
 
     with runner.isolated_filesystem():
         with open('config.yaml', 'w') as fd:
             fd.write('')
 
-        result = runner.invoke(cli, ['login'], catch_exceptions=False)
+        result = runner.invoke(cli, ['login'], catch_exceptions=False, input='pieroneurl\n')
         assert 'Storing Docker client configuration' in result.output
         assert result.output.rstrip().endswith('OK')
 
