@@ -176,8 +176,9 @@ def scm_source(config, team, artifact, tag, output):
         row['tag'] = t
         matching_tag = [d for d in tags if d['name'] == t]
         row['created_by'] = ''.join([d['created_by'] for d in matching_tag])
-        row['created_time'] = datetime.datetime.strptime(''.join([d['created'] for d in matching_tag]),
-                                                         '%Y-%m-%dT%H:%M:%S.%f%z').timestamp()
+        if matching_tag:
+            row['created_time'] = datetime.datetime.strptime(''.join([d['created'] for d in matching_tag]),
+                                                             '%Y-%m-%dT%H:%M:%S.%f%z').timestamp()
         rows.append(row)
 
     rows.sort(key=lambda row: (row['tag'], row.get('created_time')))
