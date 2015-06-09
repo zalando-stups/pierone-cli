@@ -38,6 +38,12 @@ Usage
 
 See the `STUPS documentation on pierone`_ for details.
 
+You can also run it locally from source:
+
+.. code-block:: bash
+
+    $ python3 -m pierone
+
 Running Unit Tests
 ==================
 

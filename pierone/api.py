@@ -63,7 +63,8 @@ def docker_login(url, realm, name, user, password, token_url=None, use_keyring=T
 
 
 def request(url, path, access_token):
-    return requests.get(url + path, headers={'Authorization': 'Bearer {}'.format(access_token)}, timeout=10)
+    return requests.get('{}{}'.format(url, path),
+                        headers={'Authorization': 'Bearer {}'.format(access_token)}, timeout=10)
 
 
 def image_exists(token_name: str, image: DockerImage) -> bool:

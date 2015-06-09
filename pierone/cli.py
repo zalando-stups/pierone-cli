@@ -38,10 +38,12 @@ def print_version(ctx, param, value):
 def cli(ctx, config_file):
     path = os.path.expanduser(config_file)
     data = {}
-    if os.path.exists(path):
+    try:
         with open(path, 'rb') as fd:
             data = yaml.safe_load(fd)
-    ctx.obj = data
+    except:
+        pass
+    ctx.obj = data or {}
 
 
 @cli.command()
@@ -53,11 +55,7 @@ def cli(ctx, config_file):
 @click.pass_obj
 def login(obj, url, realm, name, user, password):
     '''Login to Pier One Docker registry (generates ~/.dockercfg'''
-    try:
-        with open(CONFIG_FILE_PATH) as fd:
-            config = yaml.safe_load(fd)
-    except:
-        config = {}
+    config = obj
 
     url = url or config.get('url')
 
@@ -178,8 +176,9 @@ def scm_source(config, team, artifact, tag, output):
         row['tag'] = t
         matching_tag = [d for d in tags if d['name'] == t]
         row['created_by'] = ''.join([d['created_by'] for d in matching_tag])
-        row['created_time'] = datetime.datetime.strptime(''.join([d['created'] for d in matching_tag]),
-                                                         '%Y-%m-%dT%H:%M:%S.%f%z').timestamp()
+        if matching_tag:
+            row['created_time'] = datetime.datetime.strptime(''.join([d['created'] for d in matching_tag]),
+                                                             '%Y-%m-%dT%H:%M:%S.%f%z').timestamp()
         rows.append(row)
 
     rows.sort(key=lambda row: (row['tag'], row.get('created_time')))
