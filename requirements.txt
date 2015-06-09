@@ -3,3 +3,4 @@ keyring
 PyYAML
 requests
 stups-zign>=0.12
+mock
