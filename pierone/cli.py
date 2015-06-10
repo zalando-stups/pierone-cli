@@ -76,7 +76,7 @@ def login(obj, url, realm, name, user, password):
     with open(CONFIG_FILE_PATH, 'w') as fd:
         yaml.dump(config, fd)
 
-    docker_login(url, realm, name, user, password)
+    docker_login(url, realm, name, user, password, prompt=True)
 
 
 def get_token():

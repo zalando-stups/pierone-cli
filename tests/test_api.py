@@ -8,6 +8,7 @@ from pierone.api import docker_login
 def test_docker_login(monkeypatch, tmpdir):
     monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
     response = MagicMock()
+    response.status_code = 200
     response.json.return_value = {'access_token': '12377'}
     monkeypatch.setattr('requests.get', MagicMock(return_value=response))
     token = docker_login('https://pierone.example.org', 'services', 'mytok',
@@ -21,6 +22,7 @@ def test_docker_login(monkeypatch, tmpdir):
 def test_keep_dockercfg_entries(monkeypatch, tmpdir):
     monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
     response = MagicMock()
+    response.status_code = 200
     response.json.return_value = {'access_token': '12377'}
     monkeypatch.setattr('requests.get', MagicMock(return_value=response))
     path = os.path.expanduser('~/.dockercfg')
