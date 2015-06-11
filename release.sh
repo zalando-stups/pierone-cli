@@ -12,14 +12,15 @@ git --version
 
 version=$1
 
+python3 setup.py clean
+python3 setup.py test
+python3 setup.py flake8
+
 sed -i "s/__version__ = .*/__version__ = '${version}'/" pierone/__init__.py
 git add pierone/__init__.py
 
 git commit -m "Bumped version to $version"
 git push
-
-python3 setup.py clean
-python3 setup.py test
 
 python3 setup.py sdist upload
 
