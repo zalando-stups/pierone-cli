@@ -82,3 +82,22 @@ def image_exists(token_name: str, image: DockerImage) -> bool:
         return False
     result = r.json()
     return image.tag in result
+
+
+def get_latest_tag(token_name: str, image: DockerImage) -> bool:
+    token = get_existing_token(token_name)
+    if not token:
+        raise Unauthorized()
+
+    url = 'https://{}'.format(image.registry)
+    path = '/teams/{team}/artifacts/{artifact}/tags'.format(team=image.team, artifact=image.artifact)
+
+    try:
+        r = request(url, path, token['access_token'])
+    except:
+        return None
+    result = r.json()
+    if result:
+        return sorted(result, key=lambda x: x['created'])[-1]['name']
+    else:
+        return None
