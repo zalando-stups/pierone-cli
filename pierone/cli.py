@@ -185,7 +185,8 @@ def scm_source(config, team, artifact, tag, output):
     with OutputFormat(output):
         print_table(['tag', 'author', 'url', 'revision', 'status', 'created_time', 'created_by'], rows,
                     titles={'tag': 'Tag', 'created_by': 'By', 'created_time': 'Created',
-                            'url': 'URL', 'revision': 'Revision', 'status': 'Status'})
+                            'url': 'URL', 'revision': 'Revision', 'status': 'Status'},
+                    max_column_widths={'revision': 10})
 
 
 def main():
