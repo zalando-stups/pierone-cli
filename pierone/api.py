@@ -49,18 +49,32 @@ def docker_login(url, realm, name, user, password, token_url=None, use_keyring=T
         token = get_named_token(['uid'], realm, name, user, password, url=token_url,
                                 use_keyring=use_keyring, prompt=prompt)
     access_token = token.get('access_token')
-    path = os.path.expanduser('~/.dockercfg')
-    try:
-        with open(path) as fd:
-            dockercfg = yaml.safe_load(fd)
-    except:
-        dockercfg = {}
+
+    config_paths = list(map(os.path.expanduser, ['~/.docker/config.json', '~/.dockercfg']))
+    for path in config_paths:
+        try:
+            with open(path) as fd:
+                dockercfg = yaml.safe_load(fd)
+            if path.endswith('.dockercfg'):
+                dockercfg = {'auths': dockercfg}
+        except:
+            dockercfg = {}
+        if dockercfg:
+            break
     basic_auth = codecs.encode('oauth2:{}'.format(access_token).encode('utf-8'), 'base64').strip().decode('utf-8')
-    dockercfg[url] = {'auth': basic_auth,
-                      'email': 'no-mail-required@example.org'}
-    with Action('Storing Docker client configuration in {}..'.format(path)):
-        with open(path, 'w') as fd:
-            json.dump(dockercfg, fd)
+    if 'auths' not in dockercfg:
+        dockercfg['auths'] = {}
+    dockercfg['auths'][url] = {'auth': basic_auth,
+                               'email': 'no-mail-required@example.org'}
+    for path in config_paths:
+        with Action('Storing Docker client configuration in {}..'.format(path)):
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, 'w') as fd:
+                if path.endswith('.dockercfg'):
+                    # old config file format
+                    json.dump(dockercfg['auths'], fd)
+                else:
+                    json.dump(dockercfg, fd)
 
 
 def request(url, path, access_token):

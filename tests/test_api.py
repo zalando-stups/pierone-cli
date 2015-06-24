@@ -19,6 +19,11 @@ def test_docker_login(monkeypatch, tmpdir):
         data = yaml.safe_load(fd)
     assert {'auth': 'b2F1dGgyOjEyMzc3', 'email': 'no-mail-required@example.org'} == data.get('https://pierone.example.org')
 
+    path = os.path.expanduser('~/.docker/config.json')
+    with open(path) as fd:
+        data = yaml.safe_load(fd)
+    assert {'auth': 'b2F1dGgyOjEyMzc3', 'email': 'no-mail-required@example.org'} == data.get('auths').get('https://pierone.example.org')
+
 
 def test_keep_dockercfg_entries(monkeypatch, tmpdir):
     monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
