@@ -8,7 +8,7 @@ import yaml
 from zign.api import get_named_token
 from clickclick import error, AliasedGroup, print_table, OutputFormat
 
-from .api import docker_login, request
+from .api import docker_login, request, get_latest_tag, DockerImage
 import pierone
 
 
@@ -150,6 +150,24 @@ def tags(config, team, artifact, output):
     with OutputFormat(output):
         print_table(['team', 'artifact', 'tag', 'created_time', 'created_by'], rows,
                     titles={'created_time': 'Created', 'created_by': 'By'})
+
+
+@cli.command()
+@click.argument('team')
+@click.argument('artifact')
+@output_option
+@click.pass_obj
+def latest(config, team, artifact, output):
+    '''Get latest tag/version of a specific artifact'''
+    # validate that the token exists!
+    get_token()
+
+    registry = config.get('url')
+    if registry.startswith('https://'):
+        registry = registry[8:]
+    image = DockerImage(registry=registry, team=team, artifact=artifact, tag=None)
+
+    print(get_latest_tag('pierone', image))
 
 
 @cli.command('scm-source')
