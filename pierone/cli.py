@@ -50,7 +50,7 @@ def cli(ctx, config_file):
 @click.option('--url', help='Pier One URL', metavar='URI')
 @click.option('--realm', help='Use custom OAuth2 realm', metavar='NAME')
 @click.option('-n', '--name', help='Custom token name (will be stored)', metavar='TOKEN_NAME', default='pierone')
-@click.option('-U', '--user', help='Username to use for authentication', envvar='USER', metavar='NAME')
+@click.option('-U', '--user', help='Username to use for authentication', envvar='PIERONE_USER', metavar='NAME')
 @click.option('-p', '--password', help='Password to use for authentication', envvar='PIERONE_PASSWORD', metavar='PWD')
 @click.pass_obj
 def login(obj, url, realm, name, user, password):
@@ -58,6 +58,7 @@ def login(obj, url, realm, name, user, password):
     config = obj
 
     url = url or config.get('url')
+    user = user or os.getenv('USER')
 
     while not url:
         url = click.prompt('Please enter the Pier One URL')
