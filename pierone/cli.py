@@ -207,6 +207,30 @@ def scm_source(config, team, artifact, tag, output):
                             'url': 'URL', 'revision': 'Revision', 'status': 'Status'},
                     max_column_widths={'revision': 10})
 
+@cli.command('image')
+@click.argument('image')
+@output_option
+@click.pass_obj
+def image(config, image, output):
+    '''List tags that point to this image'''
+    token = get_token()
+
+    resp = request(config.get('url'), '/tags/{}'.format(image), token['access_token'])
+
+    if resp.status_code == 404:
+        click.echo('Image {} not found'.format(image))
+        return
+
+    if resp.status_code == 412:
+        click.echo('Prefix {} matches more than one image.'.format(image))
+        return
+
+    tags = resp.json()
+
+    with OutputFormat(output):
+        print_table(['team', 'artifact', 'name'],
+                    tags,
+                    titles={'name': 'Tag', 'artifact': 'Artifact', 'team': 'Team'})
 
 def main():
     cli()
