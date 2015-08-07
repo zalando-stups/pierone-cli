@@ -207,6 +207,7 @@ def scm_source(config, team, artifact, tag, output):
                             'url': 'URL', 'revision': 'Revision', 'status': 'Status'},
                     max_column_widths={'revision': 10})
 
+
 @cli.command('image')
 @click.argument('image')
 @output_option
@@ -231,6 +232,7 @@ def image(config, image, output):
         print_table(['team', 'artifact', 'name'],
                     tags,
                     titles={'name': 'Tag', 'artifact': 'Artifact', 'team': 'Team'})
+
 
 def main():
     cli()
