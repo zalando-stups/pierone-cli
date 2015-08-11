@@ -49,6 +49,11 @@ def docker_login(url, realm, name, user, password, token_url=None, use_keyring=T
         token = get_named_token(['uid'], realm, name, user, password, url=token_url,
                                 use_keyring=use_keyring, prompt=prompt)
     access_token = token.get('access_token')
+    docker_login_with_token(url, access_token)
+
+
+def docker_login_with_token(url, access_token):
+    '''Configure docker with existing OAuth2 access token'''
 
     config_paths = list(map(os.path.expanduser, ['~/.docker/config.json', '~/.dockercfg']))
     for path in config_paths:
