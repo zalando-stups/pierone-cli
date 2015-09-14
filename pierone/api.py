@@ -61,13 +61,11 @@ def docker_login(url, realm, name, user, password, token_url=None, use_keyring=T
 def docker_login_with_token(url, access_token):
     '''Configure docker with existing OAuth2 access token'''
 
-    config_paths = list(map(os.path.expanduser, ['~/.docker/config.json', '~/.dockercfg']))
+    config_paths = list(map(os.path.expanduser, ['~/.docker/config.json']))
     for path in config_paths:
         try:
             with open(path) as fd:
                 dockercfg = yaml.safe_load(fd)
-            if path.endswith('.dockercfg'):
-                dockercfg = {'auths': dockercfg}
         except:
             dockercfg = {}
         if dockercfg:
@@ -81,11 +79,7 @@ def docker_login_with_token(url, access_token):
         with Action('Storing Docker client configuration in {}..'.format(path)):
             os.makedirs(os.path.dirname(path), exist_ok=True)
             with open(path, 'w') as fd:
-                if path.endswith('.dockercfg'):
-                    # old config file format
-                    json.dump(dockercfg['auths'], fd)
-                else:
-                    json.dump(dockercfg, fd)
+                json.dump(dockercfg, fd)
 
 
 def request(url, path, access_token):

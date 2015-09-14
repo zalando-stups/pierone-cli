@@ -14,11 +14,6 @@ def test_docker_login(monkeypatch, tmpdir):
     monkeypatch.setattr('requests.get', MagicMock(return_value=response))
     token = docker_login('https://pierone.example.org', 'services', 'mytok',
                          'myuser', 'mypass', 'https://token.example.org', use_keyring=False)
-    path = os.path.expanduser('~/.dockercfg')
-    with open(path) as fd:
-        data = yaml.safe_load(fd)
-    assert {'auth': 'b2F1dGgyOjEyMzc3', 'email': 'no-mail-required@example.org'} == data.get('https://pierone.example.org')
-
     path = os.path.expanduser('~/.docker/config.json')
     with open(path) as fd:
         data = yaml.safe_load(fd)
