@@ -1,4 +1,5 @@
 import json
+import os
 from click.testing import CliRunner
 from unittest.mock import MagicMock
 import yaml
@@ -22,12 +23,13 @@ def test_login(monkeypatch, tmpdir):
     monkeypatch.setattr('pierone.cli.CONFIG_FILE_PATH', 'config.yaml')
     monkeypatch.setattr('pierone.api.get_named_token', MagicMock(return_value={'access_token': 'tok123'}))
     monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
+    monkeypatch.setattr('requests.get', lambda x, timeout: response)
 
     with runner.isolated_filesystem():
         with open('config.yaml', 'w') as fd:
             fd.write('')
 
-        result = runner.invoke(cli, ['login'], catch_exceptions=False, input='pieroneurl\n')
+        result = runner.invoke(cli, ['-c', 'config.yaml', 'login'], catch_exceptions=False, input='pieroneurl\n')
         assert 'Storing Docker client configuration' in result.output
         assert result.output.rstrip().endswith('OK')
 
