@@ -65,3 +65,19 @@ def test_image(monkeypatch, tmpdir):
         assert 'kio' in result.output
         assert 'stups' in result.output
         assert '1.0' in result.output
+
+
+def test_tags(monkeypatch, tmpdir):
+    response = MagicMock()
+    response.json.return_value = [{'name': '1.0', 'created_by': 'myuser', 'created': '2015-08-20T08:14:59.432Z'}]
+
+    runner = CliRunner()
+    monkeypatch.setattr('pierone.cli.CONFIG_FILE_PATH', 'config.yaml')
+    monkeypatch.setattr('pierone.cli.get_named_token', MagicMock(return_value={'access_token': 'tok123'}))
+    monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
+    monkeypatch.setattr('pierone.api.session.get', MagicMock(return_value=response))
+    with runner.isolated_filesystem():
+        with open('config.yaml', 'w') as fd:
+            fd.write('')
+        result = runner.invoke(cli, ['tags', 'myteam', 'myart'], catch_exceptions=False)
+        assert '1.0' in result.output
