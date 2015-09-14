@@ -8,6 +8,12 @@ import yaml
 from zign.api import get_named_token, get_existing_token
 
 
+adapter = requests.adapters.HTTPAdapter(pool_connections=10, pool_maxsize=10)
+session = requests.Session()
+session.mount('http://', adapter)
+session.mount('https://', adapter)
+
+
 class Unauthorized(Exception):
     def __str__(self):
         return 'Unauthorized: token missing or invalid'
@@ -83,8 +89,8 @@ def docker_login_with_token(url, access_token):
 
 
 def request(url, path, access_token):
-    return requests.get('{}{}'.format(url, path),
-                        headers={'Authorization': 'Bearer {}'.format(access_token)}, timeout=10)
+    return session.get('{}{}'.format(url, path),
+                       headers={'Authorization': 'Bearer {}'.format(access_token)}, timeout=10)
 
 
 def image_exists(token_name: str, image: DockerImage) -> bool:

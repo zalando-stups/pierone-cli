@@ -31,7 +31,7 @@ def test_keep_dockercfg_entries(monkeypatch, tmpdir):
     response.status_code = 200
     response.json.return_value = {'access_token': '12377'}
     monkeypatch.setattr('requests.get', MagicMock(return_value=response))
-    path = os.path.expanduser('~/.dockercfg')
+    path = os.path.expanduser('~/.docker/config.json')
 
     key = 'https://old.example.org'
     existing_data = {
@@ -40,6 +40,7 @@ def test_keep_dockercfg_entries(monkeypatch, tmpdir):
             'email': 'jdoe@example.org'
         }
     }
+    os.makedirs(os.path.dirname(path))
     with open(path, 'w') as fd:
         json.dump(existing_data, fd)
 
@@ -47,7 +48,7 @@ def test_keep_dockercfg_entries(monkeypatch, tmpdir):
                          'myuser', 'mypass', 'https://token.example.org', use_keyring=False)
     with open(path) as fd:
         data = yaml.safe_load(fd)
-    assert {'auth': 'b2F1dGgyOjEyMzc3', 'email': 'no-mail-required@example.org'} == data.get('https://pierone.example.org')
+    assert {'auth': 'b2F1dGgyOjEyMzc3', 'email': 'no-mail-required@example.org'} == data.get('auths', {}).get('https://pierone.example.org')
     assert existing_data.get(key) == data.get(key)
 
 
@@ -72,7 +73,7 @@ def test_get_latest_tag(monkeypatch):
                                   {'created': '2015-06-11T15:51:49.307+0000',
                                    'created_by': 'foobar',
                                    'name': '0.21'}]
-    monkeypatch.setattr('requests.get', MagicMock(return_value=response))
+    monkeypatch.setattr('pierone.api.session.get', MagicMock(return_value=response))
     monkeypatch.setattr('pierone.api.get_existing_token', MagicMock(return_value={'access_token': 'tok123'}))
     token_name = 'dummy'
     image = DockerImage(registry='registry', team='foo', artifact='bar', tag='latest')
@@ -102,7 +103,7 @@ def test_get_latest_tag_IOException(monkeypatch):
                                   {'created': '2015-06-11T15:51:49.307+0000',
                                    'created_by': 'foobar',
                                    'name': '0.21'}]
-    monkeypatch.setattr('requests.get', MagicMock(side_effect=Exception(IOError), return_value=response))
+    monkeypatch.setattr('pierone.api.session.get', MagicMock(side_effect=Exception(IOError), return_value=response))
     monkeypatch.setattr('pierone.api.get_existing_token', MagicMock(return_value={'access_token': 'tok123'}))
     token_name = 'dummy'
     image = DockerImage(registry='registry', team='foo', artifact='bar', tag='latest')
@@ -115,7 +116,7 @@ def test_get_latest_tag_non_json(monkeypatch):
     response = MagicMock()
     response.status_code = 200
     response.json.return_value = None
-    monkeypatch.setattr('requests.get', MagicMock(return_value=response))
+    monkeypatch.setattr('pierone.api.session.get', MagicMock(return_value=response))
     monkeypatch.setattr('pierone.api.get_existing_token', MagicMock(return_value={'access_token': 'tok123'}))
     token_name = 'dummy'
     image = DockerImage(registry='registry', team='foo', artifact='bar', tag='latest')
@@ -142,7 +143,7 @@ def test_image_exists(monkeypatch):
     response.status_code = 200
     response.json.return_value = {'0.1': 'chksum',
                                   '0.2': 'chksum'}
-    monkeypatch.setattr('requests.get', MagicMock(return_value=response))
+    monkeypatch.setattr('pierone.api.session.get', MagicMock(return_value=response))
     monkeypatch.setattr('pierone.api.get_existing_token', MagicMock(return_value={'access_token': 'tok123'}))
     token_name = 'dummy'
     image = DockerImage(registry='registry', team='foo', artifact='bar', tag='0.2')
@@ -156,7 +157,7 @@ def test_image_exists_IOException(monkeypatch):
     response.status_code = 200
     response.json.return_value = {'0.1': 'chksum',
                                   '0.2': 'chksum'}
-    monkeypatch.setattr('requests.get', MagicMock(side_effect=Exception(IOError), return_value=response))
+    monkeypatch.setattr('pierone.api.session.get', MagicMock(side_effect=Exception(IOError), return_value=response))
     monkeypatch.setattr('pierone.api.get_existing_token', MagicMock(return_value={'access_token': 'tok123'}))
     token_name = 'dummy'
     image = DockerImage(registry='registry', team='foo', artifact='bar', tag='0.2')
@@ -170,7 +171,7 @@ def test_image_exists_but_other_version(monkeypatch):
     response.status_code = 200
     response.json.return_value = {'0.1': 'chksum',
                                   '0.2': 'chksum'}
-    monkeypatch.setattr('requests.get', MagicMock(return_value=response))
+    monkeypatch.setattr('pierone.api.session.get', MagicMock(return_value=response))
     monkeypatch.setattr('pierone.api.get_existing_token', MagicMock(return_value={'access_token': 'tok123'}))
     token_name = 'dummy'
     image = DockerImage(registry='registry', team='foo', artifact='bar', tag='latest')
@@ -183,7 +184,7 @@ def test_image_not_exists(monkeypatch):
     response = MagicMock()
     response.status_code = 404
     response.json.return_value = {}
-    monkeypatch.setattr('requests.get', MagicMock(return_value=response))
+    monkeypatch.setattr('pierone.api.session.get', MagicMock(return_value=response))
     monkeypatch.setattr('pierone.api.get_existing_token', MagicMock(return_value={'access_token': 'tok123'}))
     token_name = 'dummy'
     image = DockerImage(registry='registry', team='foo', artifact='bar', tag='latest')

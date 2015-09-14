@@ -4,6 +4,7 @@ import os
 import click
 
 import requests
+import time
 import yaml
 from zign.api import get_named_token
 from clickclick import error, AliasedGroup, print_table, OutputFormat
@@ -20,6 +21,22 @@ CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 
 output_option = click.option('-o', '--output', type=click.Choice(['text', 'json', 'tsv']), default='text',
                              help='Use alternative output format')
+
+
+def parse_time(s: str) -> float:
+    '''
+    >>> parse_time('2015-04-14T19:09:01.000Z') > 0
+    True
+    '''
+    try:
+        utc = datetime.datetime.strptime(s, '%Y-%m-%dT%H:%M:%S.%fZ')
+        ts = time.time()
+        utc_offset = datetime.datetime.fromtimestamp(ts) - datetime.datetime.utcfromtimestamp(ts)
+        local = utc + utc_offset
+        return local.timestamp()
+    except Exception as e:
+        print(e)
+        return None
 
 
 def print_version(ctx, param, value):
@@ -144,7 +161,7 @@ def tags(config, team, artifact, output):
                       'artifact': art,
                       'tag': row['name'],
                       'created_by': row['created_by'],
-                      'created_time': datetime.datetime.strptime(row['created'], '%Y-%m-%dT%H:%M:%S.%f%z').timestamp()}
+                      'created_time': parse_time(row['created'])}
                      for row in r])
 
     rows.sort(key=lambda row: (row['team'], row['artifact'], row['tag']))
@@ -196,8 +213,7 @@ def scm_source(config, team, artifact, tag, output):
         matching_tag = [d for d in tags if d['name'] == t]
         row['created_by'] = ''.join([d['created_by'] for d in matching_tag])
         if matching_tag:
-            row['created_time'] = datetime.datetime.strptime(''.join([d['created'] for d in matching_tag]),
-                                                             '%Y-%m-%dT%H:%M:%S.%f%z').timestamp()
+            row['created_time'] = parse_time(''.join([d['created'] for d in matching_tag]))
         rows.append(row)
 
     rows.sort(key=lambda row: (row['tag'], row.get('created_time')))

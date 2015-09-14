@@ -22,7 +22,6 @@ def test_login(monkeypatch, tmpdir):
     monkeypatch.setattr('pierone.cli.CONFIG_FILE_PATH', 'config.yaml')
     monkeypatch.setattr('pierone.api.get_named_token', MagicMock(return_value={'access_token': 'tok123'}))
     monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
-    monkeypatch.setattr('requests.get', MagicMock(return_value=response))
 
     with runner.isolated_filesystem():
         with open('config.yaml', 'w') as fd:
@@ -42,7 +41,7 @@ def test_scm_source(monkeypatch, tmpdir):
     monkeypatch.setattr('pierone.cli.get_named_token', MagicMock(return_value={'access_token': 'tok123'}))
     monkeypatch.setattr('pierone.cli.get_tags', MagicMock(return_value={}))
     monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
-    monkeypatch.setattr('requests.get', MagicMock(return_value=response))
+    monkeypatch.setattr('pierone.api.session.get', MagicMock(return_value=response))
     with runner.isolated_filesystem():
         with open('config.yaml', 'w') as fd:
             fd.write('')
@@ -58,7 +57,7 @@ def test_image(monkeypatch, tmpdir):
     monkeypatch.setattr('pierone.cli.CONFIG_FILE_PATH', 'config.yaml')
     monkeypatch.setattr('pierone.cli.get_named_token', MagicMock(return_value={'access_token': 'tok123'}))
     monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
-    monkeypatch.setattr('requests.get', MagicMock(return_value=response))
+    monkeypatch.setattr('pierone.api.session.get', MagicMock(return_value=response))
     with runner.isolated_filesystem():
         with open('config.yaml', 'w') as fd:
             fd.write('')
