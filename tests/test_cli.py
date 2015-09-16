@@ -74,3 +74,19 @@ def test_tags(monkeypatch, tmpdir):
     with runner.isolated_filesystem():
         result = runner.invoke(cli, ['tags', 'myteam', 'myart'], catch_exceptions=False)
         assert '1.0' in result.output
+
+
+def test_latest(monkeypatch, tmpdir):
+    response = MagicMock()
+    response.json.return_value = [
+            {'name': '1.0', 'created_by': 'myuser', 'created': '2015-08-20T08:14:59.432Z'},
+            # 1.1 was pushed BEFORE 1.0, i.e. latest tag is actually "1.0"!
+            {'name': '1.1', 'created_by': 'myuser', 'created': '2015-08-20T08:11:59.432Z'}]
+
+    runner = CliRunner()
+    monkeypatch.setattr('stups_cli.config.load_config', lambda x: {'url': 'https://pierone.example.org'})
+    monkeypatch.setattr('pierone.cli.get_named_token', MagicMock(return_value={'access_token': 'tok123'}))
+    monkeypatch.setattr('pierone.api.session.get', MagicMock(return_value=response))
+    with runner.isolated_filesystem():
+        result = runner.invoke(cli, ['latest', 'myteam', 'myart'], catch_exceptions=False)
+        assert '1.0' in result.output
