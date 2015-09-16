@@ -4,7 +4,6 @@ import os
 from clickclick import Action
 import collections
 import requests
-import yaml
 from zign.api import get_named_token, get_existing_token
 
 
@@ -61,25 +60,21 @@ def docker_login(url, realm, name, user, password, token_url=None, use_keyring=T
 def docker_login_with_token(url, access_token):
     '''Configure docker with existing OAuth2 access token'''
 
-    config_paths = list(map(os.path.expanduser, ['~/.docker/config.json']))
-    for path in config_paths:
-        try:
-            with open(path) as fd:
-                dockercfg = yaml.safe_load(fd)
-        except:
-            dockercfg = {}
-        if dockercfg:
-            break
+    path = os.path.expanduser('~/.docker/config.json')
+    try:
+        with open(path) as fd:
+            dockercfg = json.load(fd)
+    except:
+        dockercfg = {}
     basic_auth = codecs.encode('oauth2:{}'.format(access_token).encode('utf-8'), 'base64').strip().decode('utf-8')
     if 'auths' not in dockercfg:
         dockercfg['auths'] = {}
     dockercfg['auths'][url] = {'auth': basic_auth,
                                'email': 'no-mail-required@example.org'}
-    for path in config_paths:
-        with Action('Storing Docker client configuration in {}..'.format(path)):
-            os.makedirs(os.path.dirname(path), exist_ok=True)
-            with open(path, 'w') as fd:
-                json.dump(dockercfg, fd)
+    with Action('Storing Docker client configuration in {}..'.format(path)):
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, 'w') as fd:
+            json.dump(dockercfg, fd)
 
 
 def request(url, path, access_token):

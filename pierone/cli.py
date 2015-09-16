@@ -5,17 +5,15 @@ import click
 
 import requests
 import time
-import yaml
 from zign.api import get_named_token
 from clickclick import error, AliasedGroup, print_table, OutputFormat
 
 from .api import docker_login, request, get_latest_tag, DockerImage
 import pierone
+import stups_cli.config
 
 
 KEYRING_KEY = 'pierone'
-CONFIG_DIR_PATH = click.get_app_dir('pierone')
-CONFIG_FILE_PATH = os.path.join(CONFIG_DIR_PATH, 'pierone.yaml')
 
 CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 
@@ -47,20 +45,11 @@ def print_version(ctx, param, value):
 
 
 @click.group(cls=AliasedGroup, context_settings=CONTEXT_SETTINGS)
-@click.option('--config-file', '-c', help='Use alternative configuration file',
-              default=CONFIG_FILE_PATH, metavar='PATH')
 @click.option('-V', '--version', is_flag=True, callback=print_version, expose_value=False, is_eager=True,
               help='Print the current version number and exit.')
 @click.pass_context
-def cli(ctx, config_file):
-    path = os.path.expanduser(config_file)
-    data = {}
-    try:
-        with open(path, 'rb') as fd:
-            data = yaml.safe_load(fd)
-    except:
-        pass
-    ctx.obj = data or {}
+def cli(ctx):
+    ctx.obj = stups_cli.config.load_config('pierone')
 
 
 @cli.command()
@@ -90,9 +79,7 @@ def login(obj, url, realm, name, user, password):
 
         config['url'] = url
 
-    os.makedirs(CONFIG_DIR_PATH, exist_ok=True)
-    with open(CONFIG_FILE_PATH, 'w') as fd:
-        yaml.dump(config, fd)
+    stups_cli.config.store_config(config, 'pierone')
 
     docker_login(url, realm, name, user, password, prompt=True)
 
