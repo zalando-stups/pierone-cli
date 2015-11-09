@@ -1,5 +1,6 @@
 import datetime
 import os
+import re
 
 import click
 
@@ -19,6 +20,14 @@ CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 
 output_option = click.option('-o', '--output', type=click.Choice(['text', 'json', 'tsv']), default='text',
                              help='Use alternative output format')
+
+TEAM_PATTERN = re.compile(r'^[a-z][a-z0-9]+$')
+
+
+def validate_team(ctx, param, value):
+    if not TEAM_PATTERN.match(value):
+        raise click.BadParameter('Team ID must satisfy regular expression pattern "[a-z][a-z0-9]+"')
+        return value
 
 
 def parse_time(s: str) -> float:
@@ -116,7 +125,7 @@ def get_tags(url, team, art, access_token):
 
 
 @cli.command()
-@click.argument('team')
+@click.argument('team', callback=validate_team)
 @output_option
 @click.pass_obj
 def artifacts(config, team, output):
@@ -130,7 +139,7 @@ def artifacts(config, team, output):
 
 
 @cli.command()
-@click.argument('team')
+@click.argument('team', callback=validate_team)
 @click.argument('artifact', nargs=-1)
 @output_option
 @click.pass_obj
@@ -158,7 +167,7 @@ def tags(config, team, artifact, output):
 
 
 @cli.command()
-@click.argument('team')
+@click.argument('team', callback=validate_team)
 @click.argument('artifact')
 @output_option
 @click.pass_obj
@@ -176,7 +185,7 @@ def latest(config, team, artifact, output):
 
 
 @cli.command('scm-source')
-@click.argument('team')
+@click.argument('team', callback=validate_team)
 @click.argument('artifact')
 @click.argument('tag', nargs=-1)
 @output_option

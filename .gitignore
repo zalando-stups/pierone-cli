@@ -11,3 +11,4 @@ htmlcov/
 .python-version
 virtualenv
 *.sw*
+.cache/
