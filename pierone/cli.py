@@ -27,7 +27,7 @@ TEAM_PATTERN = re.compile(r'^[a-z][a-z0-9]+$')
 def validate_team(ctx, param, value):
     if not TEAM_PATTERN.match(value):
         raise click.BadParameter('Team ID must satisfy regular expression pattern "[a-z][a-z0-9]+"')
-        return value
+    return value
 
 
 def parse_time(s: str) -> float:
