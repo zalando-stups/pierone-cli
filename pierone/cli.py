@@ -21,7 +21,7 @@ CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 output_option = click.option('-o', '--output', type=click.Choice(['text', 'json', 'tsv']), default='text',
                              help='Use alternative output format')
 
-TEAM_PATTERN = re.compile(r'^[a-z][a-z0-9]+$')
+TEAM_PATTERN = re.compile(r'^[a-z][a-z0-9-]+$')
 
 
 def validate_team(ctx, param, value):
