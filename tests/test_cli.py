@@ -37,7 +37,7 @@ def test_scm_source(monkeypatch, tmpdir):
 
     runner = CliRunner()
     monkeypatch.setattr('stups_cli.config.load_config', lambda x: {})
-    monkeypatch.setattr('pierone.cli.get_named_token', MagicMock(return_value={'access_token': 'tok123'}))
+    monkeypatch.setattr('zign.api.get_token', MagicMock(return_value='tok123'))
     monkeypatch.setattr('pierone.cli.get_tags', MagicMock(return_value={}))
     monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
     monkeypatch.setattr('pierone.api.session.get', MagicMock(return_value=response))
@@ -52,7 +52,7 @@ def test_image(monkeypatch, tmpdir):
 
     runner = CliRunner()
     monkeypatch.setattr('stups_cli.config.load_config', lambda x: {})
-    monkeypatch.setattr('pierone.cli.get_named_token', MagicMock(return_value={'access_token': 'tok123'}))
+    monkeypatch.setattr('zign.api.get_token', MagicMock(return_value='tok123'))
     monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
     monkeypatch.setattr('pierone.api.session.get', MagicMock(return_value=response))
     with runner.isolated_filesystem():
@@ -68,7 +68,7 @@ def test_tags(monkeypatch, tmpdir):
 
     runner = CliRunner()
     monkeypatch.setattr('stups_cli.config.load_config', lambda x: {})
-    monkeypatch.setattr('pierone.cli.get_named_token', MagicMock(return_value={'access_token': 'tok123'}))
+    monkeypatch.setattr('zign.api.get_token', MagicMock(return_value='tok123'))
     monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
     monkeypatch.setattr('pierone.api.session.get', MagicMock(return_value=response))
     with runner.isolated_filesystem():
@@ -85,7 +85,7 @@ def test_latest(monkeypatch, tmpdir):
 
     runner = CliRunner()
     monkeypatch.setattr('stups_cli.config.load_config', lambda x: {'url': 'https://pierone.example.org'})
-    monkeypatch.setattr('pierone.cli.get_named_token', MagicMock(return_value={'access_token': 'tok123'}))
+    monkeypatch.setattr('zign.api.get_token', MagicMock(return_value='tok123'))
     monkeypatch.setattr('pierone.api.get_existing_token', MagicMock(return_value={'access_token': 'tok123'}))
     monkeypatch.setattr('pierone.api.session.get', MagicMock(return_value=response))
     with runner.isolated_filesystem():
