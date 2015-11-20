@@ -21,6 +21,8 @@ CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 output_option = click.option('-o', '--output', type=click.Choice(['text', 'json', 'tsv']), default='text',
                              help='Use alternative output format')
 
+url_option = click.option('--url', help='Pier One URL', metavar ='URI')
+
 TEAM_PATTERN = re.compile(r'^[a-z][a-z0-9-]+$')
 
 
@@ -53,27 +55,9 @@ def print_version(ctx, param, value):
     ctx.exit()
 
 
-@click.group(cls=AliasedGroup, context_settings=CONTEXT_SETTINGS)
-@click.option('-V', '--version', is_flag=True, callback=print_version, expose_value=False, is_eager=True,
-              help='Print the current version number and exit.')
-@click.pass_context
-def cli(ctx):
-    ctx.obj = stups_cli.config.load_config('pierone')
-
-
-@cli.command()
-@click.option('--url', help='Pier One URL', metavar='URI')
-@click.option('--realm', help='Use custom OAuth2 realm', metavar='NAME')
-@click.option('-n', '--name', help='Custom token name (will be stored)', metavar='TOKEN_NAME', default='pierone')
-@click.option('-U', '--user', help='Username to use for authentication', envvar='PIERONE_USER', metavar='NAME')
-@click.option('-p', '--password', help='Password to use for authentication', envvar='PIERONE_PASSWORD', metavar='PWD')
-@click.pass_obj
-def login(obj, url, realm, name, user, password):
-    '''Login to Pier One Docker registry (generates ~/.dockercfg'''
-    config = obj
-
+def set_pierone_url(config: dict, url: str) -> None:
+    '''Read Pier One URL from cli, from config file or from stdin.'''
     url = url or config.get('url')
-    user = user or os.getenv('USER')
 
     while not url:
         url = click.prompt('Please enter the Pier One URL')
@@ -86,7 +70,28 @@ def login(obj, url, realm, name, user, password):
             error('Could not reach {}'.format(url))
             url = None
 
-        config['url'] = url
+    config['url'] = url
+
+
+@click.group(cls=AliasedGroup, context_settings=CONTEXT_SETTINGS)
+@click.option('-V', '--version', is_flag=True, callback=print_version, expose_value=False, is_eager=True,
+              help='Print the current version number and exit.')
+@click.pass_context
+def cli(ctx):
+    ctx.obj = stups_cli.config.load_config('pierone')
+
+
+@cli.command()
+@url_option
+@click.option('--realm', help='Use custom OAuth2 realm', metavar='NAME')
+@click.option('-n', '--name', help='Custom token name (will be stored)', metavar='TOKEN_NAME', default='pierone')
+@click.option('-U', '--user', help='Username to use for authentication', envvar='PIERONE_USER', metavar='NAME')
+@click.option('-p', '--password', help='Password to use for authentication', envvar='PIERONE_PASSWORD', metavar='PWD')
+@click.pass_obj
+def login(config, url, realm, name, user, password):
+    '''Login to Pier One Docker registry (generates ~/.dockercfg'''
+    set_pierone_url(config, url)
+    user = user or os.getenv('USER')
 
     stups_cli.config.store_config(config, 'pierone')
 
@@ -102,10 +107,12 @@ def get_token():
 
 
 @cli.command()
+@url_option
 @output_option
 @click.pass_obj
-def teams(config, output):
+def teams(config, output, url):
     '''List all teams having artifacts in Pier One'''
+    set_pierone_url(config, url)
     token = get_token()
 
     r = request(config.get('url'), '/teams', token)
@@ -126,10 +133,12 @@ def get_tags(url, team, art, access_token):
 
 @cli.command()
 @click.argument('team', callback=validate_team)
+@url_option
 @output_option
 @click.pass_obj
-def artifacts(config, team, output):
+def artifacts(config, team, url, output):
     '''List all team artifacts'''
+    set_pierone_url(config, url)
     token = get_token()
 
     result = get_artifacts(config.get('url'), team, token)
@@ -141,10 +150,12 @@ def artifacts(config, team, output):
 @cli.command()
 @click.argument('team', callback=validate_team)
 @click.argument('artifact', nargs=-1)
+@url_option
 @output_option
 @click.pass_obj
-def tags(config, team, artifact, output):
-    '''List all tags'''
+def tags(config, team, artifact, url, output):
+    '''List all tags for a given team'''
+    set_pierone_url(config, url)
     token = get_token()
 
     if not artifact:
@@ -169,11 +180,13 @@ def tags(config, team, artifact, output):
 @cli.command()
 @click.argument('team', callback=validate_team)
 @click.argument('artifact')
+@url_option
 @output_option
 @click.pass_obj
-def latest(config, team, artifact, output):
+def latest(config, team, artifact, url, output):
     '''Get latest tag/version of a specific artifact'''
     # validate that the token exists!
+    set_pierone_url(config, url)
     get_token()
 
     registry = config.get('url')
@@ -188,10 +201,12 @@ def latest(config, team, artifact, output):
 @click.argument('team', callback=validate_team)
 @click.argument('artifact')
 @click.argument('tag', nargs=-1)
+@url_option
 @output_option
 @click.pass_obj
-def scm_source(config, team, artifact, tag, output):
+def scm_source(config, team, artifact, tag, url, output):
     '''Show SCM source information such as GIT revision'''
+    set_pierone_url(config, url)
     token = get_token()
 
     tags = get_tags(config.get('url'), team, artifact, token)
@@ -222,10 +237,12 @@ def scm_source(config, team, artifact, tag, output):
 
 @cli.command('image')
 @click.argument('image')
+@url_option
 @output_option
 @click.pass_obj
-def image(config, image, output):
+def image(config, image, url, output):
     '''List tags that point to this image'''
+    set_pierone_url(config, url)
     token = get_token()
 
     resp = request(config.get('url'), '/tags/{}'.format(image), token)
