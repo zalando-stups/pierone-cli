@@ -6,7 +6,7 @@ import click
 
 import requests
 import time
-from zign.api import get_named_token
+import zign.api
 from clickclick import error, AliasedGroup, print_table, OutputFormat
 
 from .api import docker_login, request, get_latest_tag, DockerImage
@@ -95,9 +95,9 @@ def login(obj, url, realm, name, user, password):
 
 def get_token():
     try:
-        token = get_named_token(['uid'], None, 'pierone', None, None)
-    except:
-        raise click.UsageError('No valid OAuth token named "pierone" found. Please use "pierone login".')
+        token = zign.api.get_token('pierone', ['uid'])
+    except Exception as e:
+        raise click.UsageError(str(e))
     return token
 
 
@@ -108,7 +108,7 @@ def teams(config, output):
     '''List all teams having artifacts in Pier One'''
     token = get_token()
 
-    r = request(config.get('url'), '/teams', token['access_token'])
+    r = request(config.get('url'), '/teams', token)
     rows = [{'name': name} for name in sorted(r.json())]
     with OutputFormat(output):
         print_table(['name'], rows)
@@ -132,7 +132,7 @@ def artifacts(config, team, output):
     '''List all team artifacts'''
     token = get_token()
 
-    result = get_artifacts(config.get('url'), team, token['access_token'])
+    result = get_artifacts(config.get('url'), team, token)
     rows = [{'team': team, 'artifact': name} for name in sorted(result)]
     with OutputFormat(output):
         print_table(['team', 'artifact'], rows)
@@ -148,11 +148,11 @@ def tags(config, team, artifact, output):
     token = get_token()
 
     if not artifact:
-        artifact = get_artifacts(config.get('url'), team, token['access_token'])
+        artifact = get_artifacts(config.get('url'), team, token)
 
     rows = []
     for art in artifact:
-        r = get_tags(config.get('url'), team, art, token['access_token'])
+        r = get_tags(config.get('url'), team, art, token)
         rows.extend([{'team': team,
                       'artifact': art,
                       'tag': row['name'],
@@ -194,7 +194,7 @@ def scm_source(config, team, artifact, tag, output):
     '''Show SCM source information such as GIT revision'''
     token = get_token()
 
-    tags = get_tags(config.get('url'), team, artifact, token['access_token'])
+    tags = get_tags(config.get('url'), team, artifact, token)
 
     if not tag:
         tag = [t['name'] for t in tags]
@@ -202,7 +202,7 @@ def scm_source(config, team, artifact, tag, output):
     rows = []
     for t in tag:
         row = request(config.get('url'), '/teams/{}/artifacts/{}/tags/{}/scm-source'.format(team, artifact, t),
-                      token['access_token']).json()
+                      token).json()
         if not row:
             row = {}
         row['tag'] = t
@@ -228,7 +228,7 @@ def image(config, image, output):
     '''List tags that point to this image'''
     token = get_token()
 
-    resp = request(config.get('url'), '/tags/{}'.format(image), token['access_token'])
+    resp = request(config.get('url'), '/tags/{}'.format(image), token)
 
     if resp.status_code == 404:
         click.echo('Image {} not found'.format(image))
