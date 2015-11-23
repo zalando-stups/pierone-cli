@@ -21,7 +21,7 @@ CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 output_option = click.option('-o', '--output', type=click.Choice(['text', 'json', 'tsv']), default='text',
                              help='Use alternative output format')
 
-url_option = click.option('--url', help='Pier One URL', metavar ='URI')
+url_option = click.option('--url', help='Pier One URL', metavar='URI')
 
 TEAM_PATTERN = re.compile(r'^[a-z][a-z0-9-]+$')
 
