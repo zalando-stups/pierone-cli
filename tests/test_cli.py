@@ -36,7 +36,7 @@ def test_scm_source(monkeypatch, tmpdir):
     response.json.return_value = {'url': 'git:somerepo', 'revision': 'myrev123'}
 
     runner = CliRunner()
-    monkeypatch.setattr('stups_cli.config.load_config', lambda x: {})
+    monkeypatch.setattr('stups_cli.config.load_config', lambda x: {'url':'foobar'})
     monkeypatch.setattr('zign.api.get_token', MagicMock(return_value='tok123'))
     monkeypatch.setattr('pierone.cli.get_tags', MagicMock(return_value={}))
     monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
@@ -51,7 +51,7 @@ def test_image(monkeypatch, tmpdir):
     response.json.return_value = [{'name': '1.0', 'team': 'stups', 'artifact': 'kio'}]
 
     runner = CliRunner()
-    monkeypatch.setattr('stups_cli.config.load_config', lambda x: {})
+    monkeypatch.setattr('stups_cli.config.load_config', lambda x: {'url':'foobar'})
     monkeypatch.setattr('zign.api.get_token', MagicMock(return_value='tok123'))
     monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
     monkeypatch.setattr('pierone.api.session.get', MagicMock(return_value=response))
@@ -67,7 +67,7 @@ def test_tags(monkeypatch, tmpdir):
     response.json.return_value = [{'name': '1.0', 'created_by': 'myuser', 'created': '2015-08-20T08:14:59.432Z'}]
 
     runner = CliRunner()
-    monkeypatch.setattr('stups_cli.config.load_config', lambda x: {})
+    monkeypatch.setattr('stups_cli.config.load_config', lambda x: {'url':'foobar'})
     monkeypatch.setattr('zign.api.get_token', MagicMock(return_value='tok123'))
     monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
     monkeypatch.setattr('pierone.api.session.get', MagicMock(return_value=response))
