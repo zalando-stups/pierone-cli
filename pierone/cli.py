@@ -16,7 +16,7 @@ import stups_cli.config
 
 KEYRING_KEY = 'pierone'
 
-CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
+CONTEXT_SETTINGS = {'help_option_names': ['-h', '--help']}
 
 output_option = click.option('-o', '--output', type=click.Choice(['text', 'json', 'tsv']), default='text',
                              help='Use alternative output format')
@@ -123,7 +123,7 @@ def teams(config, output, url):
         print_table(['name'], rows)
 
 
-def get_artifacts(url, team, access_token):
+def get_artifacts(url, team: str, access_token):
     r = request(url, '/teams/{}/artifacts'.format(team), access_token)
     return r.json()
 
@@ -155,7 +155,7 @@ def artifacts(config, team, url, output):
 @url_option
 @output_option
 @click.pass_obj
-def tags(config, team, artifact, url, output):
+def tags(config, team: str, artifact, url, output):
     '''List all tags for a given team'''
     set_pierone_url(config, url)
     token = get_token()
