@@ -27,6 +27,9 @@ def test_login(monkeypatch, tmpdir):
 
     with runner.isolated_filesystem():
         result = runner.invoke(cli, ['login'], catch_exceptions=False, input='pieroneurl\n')
+        with open(os.path.join(str(tmpdir), '.docker/config.json')) as fd:
+            data = json.load(fd)
+        assert data['auths']['https://pieroneurl']['auth'] == 'b2F1dGgyOnRvazEyMw=='
         assert 'Storing Docker client configuration' in result.output
         assert result.output.rstrip().endswith('OK')
 

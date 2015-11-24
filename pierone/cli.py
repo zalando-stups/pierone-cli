@@ -73,6 +73,7 @@ def set_pierone_url(config: dict, url: str) -> None:
             url = None
 
     config['url'] = url
+    return url
 
 
 @click.group(cls=AliasedGroup, context_settings=CONTEXT_SETTINGS)
@@ -92,7 +93,7 @@ def cli(ctx):
 @click.pass_obj
 def login(config, url, realm, name, user, password):
     '''Login to Pier One Docker registry (generates ~/.dockercfg'''
-    set_pierone_url(config, url)
+    url = set_pierone_url(config, url)
     user = user or os.getenv('USER')
 
     stups_cli.config.store_config(config, 'pierone')
