@@ -7,7 +7,7 @@ import click
 import requests
 import time
 import zign.api
-from clickclick import error, AliasedGroup, print_table, OutputFormat
+from clickclick import error, AliasedGroup, print_table, OutputFormat, UrlType
 
 from .api import docker_login, request, get_latest_tag, DockerImage
 import pierone
@@ -62,9 +62,7 @@ def set_pierone_url(config: dict, url: str) -> None:
     url = url or config.get('url')
 
     while not url:
-        url = click.prompt('Please enter the Pier One URL')
-        if not url.startswith('http'):
-            url = 'https://{}'.format(url)
+        url = click.prompt('Please enter the Pier One URL', type=UrlType())
 
         try:
             requests.get(url, timeout=5)
