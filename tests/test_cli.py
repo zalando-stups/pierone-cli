@@ -34,6 +34,32 @@ def test_login(monkeypatch, tmpdir):
         assert result.output.rstrip().endswith('OK')
 
 
+def test_login_given_url_option(monkeypatch, tmpdir):
+    response = MagicMock()
+
+    runner = CliRunner()
+
+    config = {}
+    def store(data, section):
+        config.update(**data)
+
+    monkeypatch.setattr('stups_cli.config.load_config', lambda x: {})
+    monkeypatch.setattr('stups_cli.config.store_config', store)
+    monkeypatch.setattr('pierone.api.get_named_token', MagicMock(return_value={'access_token': 'tok123'}))
+    monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
+    monkeypatch.setattr('requests.get', lambda x, timeout: response)
+
+    with runner.isolated_filesystem():
+        result = runner.invoke(cli, ['login'], catch_exceptions=False, input='pieroneurl\n')
+        assert config == {'url': 'https://pieroneurl'}
+        result = runner.invoke(cli, ['login', '--url', 'someotherregistry'], catch_exceptions=False)
+        with open(os.path.join(str(tmpdir), '.docker/config.json')) as fd:
+            data = json.load(fd)
+        assert data['auths']['https://pieroneurl']['auth'] == 'b2F1dGgyOnRvazEyMw=='
+        assert data['auths']['https://someotherregistry']['auth'] == 'b2F1dGgyOnRvazEyMw=='
+        assert config == {'url': 'https://pieroneurl'}
+
+
 def test_scm_source(monkeypatch, tmpdir):
     response = MagicMock()
     response.json.return_value = {'url': 'git:somerepo', 'revision': 'myrev123'}

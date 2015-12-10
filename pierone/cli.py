@@ -95,10 +95,12 @@ def cli(ctx):
 @click.pass_obj
 def login(config, url, realm, name, user, password):
     '''Login to Pier One Docker registry (generates ~/.dockercfg'''
+    url_option_was_set = url
     url = set_pierone_url(config, url)
     user = user or os.getenv('USER')
 
-    stups_cli.config.store_config(config, 'pierone')
+    if not url_option_was_set:
+        stups_cli.config.store_config(config, 'pierone')
 
     docker_login(url, realm, name, user, password, prompt=True)
 
