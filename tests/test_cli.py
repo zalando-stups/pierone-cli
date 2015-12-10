@@ -94,3 +94,20 @@ def test_latest(monkeypatch, tmpdir):
     with runner.isolated_filesystem():
         result = runner.invoke(cli, ['latest', 'myteam', 'myart'], catch_exceptions=False)
         assert '1.0' in result.output
+
+
+def test_url_without_scheme(monkeypatch, tmpdir):
+    response = MagicMock()
+    response.json.return_value = [{'name': '1.0', 'created_by': 'myuser', 'created': '2015-08-20T08:14:59.432Z'}]
+
+    def get(url, **kwargs):
+        assert url == 'https://example.org/teams/myteam/artifacts'
+        return response
+
+    runner = CliRunner()
+    monkeypatch.setattr('zign.api.get_token', MagicMock(return_value='tok123'))
+    monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
+    monkeypatch.setattr('pierone.api.session.get', get)
+    with runner.isolated_filesystem():
+        result = runner.invoke(cli, ['artifacts', 'myteam', '--url', 'example.org'], catch_exceptions=False)
+        assert '1.0' in result.output

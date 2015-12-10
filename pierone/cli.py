@@ -70,6 +70,10 @@ def set_pierone_url(config: dict, url: str) -> None:
             error('Could not reach {}'.format(url))
             url = None
 
+    if '://' not in url:
+        # issue 63: gracefully handle URLs without scheme
+        url = 'https://{}'.format(url)
+
     config['url'] = url
     return url
 
