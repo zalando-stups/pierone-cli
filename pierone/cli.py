@@ -135,6 +135,11 @@ def get_artifacts(url, team: str, access_token):
 
 def get_tags(url, team, art, access_token):
     r = request(url, '/teams/{}/artifacts/{}/tags'.format(team, art), access_token)
+    if r.status_code == 404:
+        # empty list of tags (artifact does not exist)
+        return []
+    else:
+        r.raise_for_status()
     return r.json()
 
 
