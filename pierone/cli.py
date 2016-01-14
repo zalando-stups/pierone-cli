@@ -183,7 +183,8 @@ def tags(config, team: str, artifact, url, output):
                       'created_time': parse_time(row['created'])}
                      for row in r])
 
-    rows.sort(key=lambda row: (row['team'], row['artifact'], row['tag']))
+    # sorts are guaranteed to be stable, i.e. tags will be sorted by time (as returned from REST service)
+    rows.sort(key=lambda row: (row['team'], row['artifact']))
     with OutputFormat(output):
         print_table(['team', 'artifact', 'tag', 'created_time', 'created_by'], rows,
                     titles={'created_time': 'Created', 'created_by': 'By'})
