@@ -77,7 +77,7 @@ def docker_login_with_token(url, access_token):
             json.dump(dockercfg, fd)
 
 
-def request(url, path, access_token):
+def request(url, path, access_token) -> requests.Response:
     return session.get('{}{}'.format(url, path),
                        headers={'Authorization': 'Bearer {}'.format(access_token)}, timeout=10)
 
@@ -108,6 +108,7 @@ def get_latest_tag(token_name: str, image: DockerImage) -> bool:
 
     try:
         r = request(url, path, token['access_token'])
+        r.raise_for_status()
     except:
         return None
     result = r.json()
