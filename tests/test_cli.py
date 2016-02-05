@@ -119,7 +119,20 @@ def test_latest(monkeypatch, tmpdir):
     monkeypatch.setattr('pierone.api.session.get', MagicMock(return_value=response))
     with runner.isolated_filesystem():
         result = runner.invoke(cli, ['latest', 'myteam', 'myart'], catch_exceptions=False)
-        assert '1.0' in result.output
+        assert '1.0' == result.output.rstrip()
+
+
+def test_latest_not_found(monkeypatch, tmpdir):
+    response = MagicMock()
+    response.raise_for_status.side_effect = Exception('FAIL')
+    runner = CliRunner()
+    monkeypatch.setattr('stups_cli.config.load_config', lambda x: {'url': 'https://pierone.example.org'})
+    monkeypatch.setattr('zign.api.get_token', MagicMock(return_value='tok123'))
+    monkeypatch.setattr('pierone.api.get_existing_token', MagicMock(return_value={'access_token': 'tok123'}))
+    monkeypatch.setattr('pierone.api.session.get', MagicMock(return_value=response))
+    with runner.isolated_filesystem():
+        result = runner.invoke(cli, ['latest', 'myteam', 'myart'], catch_exceptions=False)
+        assert 'None' == result.output.rstrip()
 
 
 def test_url_without_scheme(monkeypatch, tmpdir):
