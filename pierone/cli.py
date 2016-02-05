@@ -36,6 +36,8 @@ def validate_team(ctx, param, value):
 
 def parse_time(s: str) -> float:
     '''
+    >>> parse_time('foo')
+    time data 'foo' does not match format '%Y-%m-%dT%H:%M:%S.%fZ'
     >>> parse_time('2015-04-14T19:09:01.000Z') > 0
     True
     '''
