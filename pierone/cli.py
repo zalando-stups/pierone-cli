@@ -5,6 +5,8 @@ import re
 import click
 
 import requests
+import tarfile
+import tempfile
 import time
 import zign.api
 from clickclick import error, AliasedGroup, print_table, OutputFormat, UrlType
@@ -276,6 +278,64 @@ def image(config, image, url, output):
         print_table(['team', 'artifact', 'name'],
                     tags,
                     titles={'name': 'Tag', 'artifact': 'Artifact', 'team': 'Team'})
+
+
+@cli.command('inspect-contents')
+@click.argument('team', callback=validate_team)
+@click.argument('artifact')
+@click.argument('tag', nargs=-1)
+@click.option('-l', '--limit', type=int, default=1)
+@url_option
+@output_option
+@click.pass_obj
+def inspect_contents(config, team, artifact, tag, url, output, limit):
+    '''List image contents (files in tar layers)'''
+    set_pierone_url(config, url)
+    token = get_token()
+
+    tags = get_tags(config.get('url'), team, artifact, token)
+
+    if not tag:
+        tag = [t['name'] for t in tags]
+
+    CHUNK_SIZE = 8192
+    TYPES = {b'5': 'D', b'0': ' '}
+
+    rows = []
+    for t in tag:
+        row = request(config.get('url'), '/v2/{}/{}/manifests/{}'.format(team, artifact, t),
+                      token).json()
+        if row.get('layers'):
+            layers = reversed([lay.get('digest') for lay in row.get('layers')])
+        else:
+            layers = [lay.get('blobSum') for lay in row.get('fsLayers')]
+        if layers:
+            found = 0
+            for i, layer in enumerate(layers):
+                layer_id = layer
+                if layer_id:
+                    response = request(config.get('url'), '/v2/{}/{}/blobs/{}'.format(team, artifact, layer_id), token)
+                    with tempfile.NamedTemporaryFile(prefix='tmp-layer-', suffix='.tar') as fd:
+                        for chunk in response.iter_content(CHUNK_SIZE):
+                            fd.write(chunk)
+                        fd.flush()
+                        with tarfile.open(fd.name) as archive:
+                            has_member = False
+                            for member in archive.getmembers():
+                                rows.append({'layer_index': i, 'layer_id': layer_id, 'type': TYPES.get(member.type),
+                                             'mode': oct(member.mode)[-4:],
+                                             'name': member.name, 'size': member.size, 'created_time': member.mtime})
+                                has_member = True
+                            if has_member:
+                                found += 1
+                if found >= limit:
+                    break
+
+    rows.sort(key=lambda row: (row['layer_index'], row['name']))
+    with OutputFormat(output):
+        print_table(['layer_index', 'layer_id', 'mode', 'name', 'size', 'created_time'], rows,
+                    titles={'created_time': 'Created', 'layer_index': 'Idx'},
+                    max_column_widths={'layer_id': 16})
 
 
 def main():
