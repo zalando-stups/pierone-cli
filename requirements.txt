@@ -1,4 +1,4 @@
 clickclick>=1.0
 requests
-stups-zign>=1.0.13
+stups-zign>=1.0.21
 stups-cli-support

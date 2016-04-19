@@ -20,6 +20,16 @@ def test_docker_login(monkeypatch, tmpdir):
     assert {'auth': 'b2F1dGgyOjEyMzc3', 'email': 'no-mail-required@example.org'} == data.get('auths').get('https://pierone.example.org')
 
 
+def test_docker_login_service_token(monkeypatch, tmpdir):
+    monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
+    monkeypatch.setattr('tokens.get', lambda x: '12377')
+    token = docker_login('https://pierone.example.org', None, 'mytok', 'myuser', 'mypass', 'https://token.example.org')
+    path = os.path.expanduser('~/.docker/config.json')
+    with open(path) as fd:
+        data = yaml.safe_load(fd)
+    assert {'auth': 'b2F1dGgyOjEyMzc3', 'email': 'no-mail-required@example.org'} == data.get('auths').get('https://pierone.example.org')
+
+
 def test_keep_dockercfg_entries(monkeypatch, tmpdir):
     monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
     response = MagicMock()
