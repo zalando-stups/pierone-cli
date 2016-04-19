@@ -51,7 +51,8 @@ class DockerImage(collections.namedtuple('DockerImage', 'registry team artifact 
 
 def docker_login(url, realm, name, user, password, token_url=None, use_keyring=True, prompt=False):
     with Action('Getting OAuth2 token "{}"..'.format(name)):
-        token = get_named_token(['uid'], realm, name, user, password, url=token_url,
+        token = get_named_token(['uid', 'application.write'],
+                                realm, name, user, password, url=token_url,
                                 use_keyring=use_keyring, prompt=prompt)
     access_token = token.get('access_token')
     docker_login_with_token(url, access_token)
