@@ -135,8 +135,6 @@ def test_tags(monkeypatch, tmpdir):
         assert 'Fixable CVE Severity' in result.output
         assert 'Unfixable CVE Severity' in result.output
         assert re.search('High\s+Medium', result.output), 'Should how information about CVEs'
-        assert len(re.findall(' \- +\- +\n', result.output)) == 2, \
-            'Two results do not have CVEs information, thus should display a "-". Output was:\n{}'.format(result.output)
 
 
 def test_latest(monkeypatch, tmpdir):

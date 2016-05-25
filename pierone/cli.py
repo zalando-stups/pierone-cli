@@ -183,8 +183,8 @@ def tags(config, team: str, artifact, url, output):
                       'tag': row['name'],
                       'created_by': row['created_by'],
                       'created_time': parse_time(row['created']),
-                      'severity_fix_available': row.get('severity_fix_available', '-') or '-',
-                      'severity_no_fix_available': row.get('severity_no_fix_available', '-') or '-'}
+                      'severity_fix_available': row.get('severity_fix_available'),
+                      'severity_no_fix_available': row.get('severity_no_fix_available')}
                      for row in r])
 
     # sorts are guaranteed to be stable, i.e. tags will be sorted by time (as returned from REST service)
