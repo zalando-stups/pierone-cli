@@ -1,9 +1,11 @@
 import json
 import os
 from unittest.mock import MagicMock
-import yaml
-from pierone.api import docker_login, DockerImage, get_latest_tag, Unauthorized, image_exists
+
 import pytest
+import yaml
+from pierone.api import (DockerImage, Unauthorized, docker_login,
+                         get_latest_tag, image_exists)
 
 
 def test_docker_login(monkeypatch, tmpdir):
@@ -12,22 +14,22 @@ def test_docker_login(monkeypatch, tmpdir):
     response.status_code = 200
     response.json.return_value = {'access_token': '12377'}
     monkeypatch.setattr('requests.get', MagicMock(return_value=response))
-    token = docker_login('https://pierone.example.org', 'services', 'mytok',
-                         'myuser', 'mypass', 'https://token.example.org', use_keyring=False)
+    docker_login('https://pierone.example.org', 'services', 'mytok',
+                 'myuser', 'mypass', 'https://token.example.org', use_keyring=False)
     path = os.path.expanduser('~/.docker/config.json')
     with open(path) as fd:
         data = yaml.safe_load(fd)
-    assert {'auth': 'b2F1dGgyOjEyMzc3', 'email': 'no-mail-required@example.org'} == data.get('auths').get('https://pierone.example.org')
+        assert {'auth': 'b2F1dGgyOjEyMzc3', 'email': 'no-mail-required@example.org'} == data.get('auths').get('https://pierone.example.org')
 
 
 def test_docker_login_service_token(monkeypatch, tmpdir):
     monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
     monkeypatch.setattr('tokens.get', lambda x: '12377')
-    token = docker_login('https://pierone.example.org', None, 'mytok', 'myuser', 'mypass', 'https://token.example.org')
+    docker_login('https://pierone.example.org', None, 'mytok', 'myuser', 'mypass', 'https://token.example.org')
     path = os.path.expanduser('~/.docker/config.json')
     with open(path) as fd:
         data = yaml.safe_load(fd)
-    assert {'auth': 'b2F1dGgyOjEyMzc3', 'email': 'no-mail-required@example.org'} == data.get('auths').get('https://pierone.example.org')
+        assert {'auth': 'b2F1dGgyOjEyMzc3', 'email': 'no-mail-required@example.org'} == data.get('auths').get('https://pierone.example.org')
 
 
 def test_keep_dockercfg_entries(monkeypatch, tmpdir):
@@ -49,12 +51,12 @@ def test_keep_dockercfg_entries(monkeypatch, tmpdir):
     with open(path, 'w') as fd:
         json.dump(existing_data, fd)
 
-    token = docker_login('https://pierone.example.org', 'services', 'mytok',
-                         'myuser', 'mypass', 'https://token.example.org', use_keyring=False)
+    docker_login('https://pierone.example.org', 'services', 'mytok',
+                 'myuser', 'mypass', 'https://token.example.org', use_keyring=False)
     with open(path) as fd:
         data = yaml.safe_load(fd)
-    assert {'auth': 'b2F1dGgyOjEyMzc3', 'email': 'no-mail-required@example.org'} == data.get('auths', {}).get('https://pierone.example.org')
-    assert existing_data.get(key) == data.get(key)
+        assert {'auth': 'b2F1dGgyOjEyMzc3', 'email': 'no-mail-required@example.org'} == data.get('auths', {}).get('https://pierone.example.org')
+        assert existing_data.get(key) == data.get(key)
 
 
 def test_get_latest_tag(monkeypatch):

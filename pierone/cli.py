@@ -1,20 +1,18 @@
 import datetime
 import os
 import re
-
-import click
-
-import requests
 import tarfile
 import tempfile
 import time
-import zign.api
-from clickclick import error, AliasedGroup, print_table, OutputFormat, UrlType
 
-from .api import docker_login, request, get_latest_tag, DockerImage
+import click
 import pierone
+import requests
 import stups_cli.config
+import zign.api
+from clickclick import AliasedGroup, OutputFormat, UrlType, error, print_table
 
+from .api import DockerImage, docker_login, get_latest_tag, request
 
 KEYRING_KEY = 'pierone'
 
