@@ -1,5 +1,6 @@
 import json
 import os
+import re
 from unittest.mock import MagicMock
 
 from click.testing import CliRunner
@@ -94,7 +95,34 @@ def test_image(monkeypatch, tmpdir):
 
 def test_tags(monkeypatch, tmpdir):
     response = MagicMock()
-    response.json.return_value = [{'name': '1.0', 'created_by': 'myuser', 'created': '2015-08-20T08:14:59.432Z'}]
+    response.json.return_value = [
+        # Former pierone payload
+        {
+            'name': '1.0',
+            'created_by': 'myuser',
+            'created': '2015-08-20T08:14:59.432Z'
+        },
+        # New pierone payload with clair but no information about CVEs
+        {
+            "name": "1.1",
+            "created": "2016-05-19T15:23:41.065Z",
+            "created_by": "myuser",
+            "image": "longid:here",
+            "clair_id": None,
+            "severity_fix_available": None,
+            "severity_no_fix_available": None
+        },
+        # New pierone payload with clair input and info about CVEs
+        {
+            "name": "1.2",
+            "created": "2016-05-23T13:29:17.753Z",
+            "created_by": "myuser",
+            "image": "longid:here",
+            "clair_id": "longid:here",
+            "severity_fix_available": "High",
+            "severity_no_fix_available": "Medium"
+        }
+    ]
 
     runner = CliRunner()
     monkeypatch.setattr('stups_cli.config.load_config', lambda x: {'url': 'foobar'})
@@ -104,6 +132,11 @@ def test_tags(monkeypatch, tmpdir):
     with runner.isolated_filesystem():
         result = runner.invoke(cli, ['tags', 'myteam', 'myart'], catch_exceptions=False)
         assert '1.0' in result.output
+        assert 'Fixable CVE Severity' in result.output
+        assert 'Unfixable CVE Severity' in result.output
+        assert re.search('High\s+Medium', result.output), 'Should how information about CVEs'
+        assert len(re.findall(' \- +\- +\n', result.output)) == 2, \
+            'Two results do not have CVEs information, thus should display a "-". Output was:\n{}'.format(result.output)
 
 
 def test_latest(monkeypatch, tmpdir):

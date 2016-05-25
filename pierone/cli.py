@@ -182,14 +182,23 @@ def tags(config, team: str, artifact, url, output):
                       'artifact': art,
                       'tag': row['name'],
                       'created_by': row['created_by'],
-                      'created_time': parse_time(row['created'])}
+                      'created_time': parse_time(row['created']),
+                      'severity_fix_available': row.get('severity_fix_available', '-') or '-',
+                      'severity_no_fix_available': row.get('severity_no_fix_available', '-') or '-'}
                      for row in r])
 
     # sorts are guaranteed to be stable, i.e. tags will be sorted by time (as returned from REST service)
     rows.sort(key=lambda row: (row['team'], row['artifact']))
     with OutputFormat(output):
-        print_table(['team', 'artifact', 'tag', 'created_time', 'created_by'], rows,
-                    titles={'created_time': 'Created', 'created_by': 'By'})
+        titles = {
+            'created_time': 'Created',
+            'created_by': 'By',
+            'severity_fix_available': 'Fixable CVE Severity',
+            'severity_no_fix_available': 'Unfixable CVE Severity'
+        }
+        print_table(['team', 'artifact', 'tag', 'created_time', 'created_by',
+                     'severity_fix_available', 'severity_no_fix_available'],
+                    rows, titles=titles)
 
 
 @cli.command()
