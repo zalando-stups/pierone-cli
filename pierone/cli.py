@@ -196,9 +196,13 @@ def tags(config, team: str, artifact, url, output):
             'severity_fix_available': 'Fixable CVE Severity',
             'severity_no_fix_available': 'Unfixable CVE Severity'
         }
+        styles = {
+            'Critical': {'bold': True},
+            'High': {'bold': True}
+        }
         print_table(['team', 'artifact', 'tag', 'created_time', 'created_by',
                      'severity_fix_available', 'severity_no_fix_available'],
-                    rows, titles=titles)
+                    rows, titles=titles, styles=styles)
 
 
 @cli.command()
