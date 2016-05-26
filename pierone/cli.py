@@ -22,6 +22,7 @@ output_option = click.option('-o', '--output', type=click.Choice(['text', 'json'
                              help='Use alternative output format')
 
 url_option = click.option('--url', help='Pier One URL', metavar='URI')
+clair_url_option = click.option('--clair-url', help='Clair URL', metavar='CLAIR_URI')
 
 TEAM_PATTERN_STR = r'[a-z][a-z0-9-]+'
 TEAM_PATTERN = re.compile(r'^{}$'.format(TEAM_PATTERN_STR))
@@ -77,6 +78,27 @@ def set_pierone_url(config: dict, url: str) -> None:
         url = 'https://{}'.format(url)
 
     config['url'] = url
+    return url
+
+
+def set_clair_url(config: dict, url: str) -> None:
+    '''Read Clair URL from cli, from config file or from stdin.'''
+    url = url or config.get('clair_url')
+
+    while not url:
+        url = click.prompt('Please enter the Clair URL', type=UrlType())
+
+        try:
+            requests.get(url, timeout=5)
+        except:
+            error('Could not reach {}'.format(url))
+            url = None
+
+    if '://' not in url:
+        # issue 63: gracefully handle URLs without scheme
+        url = 'https://{}'.format(url)
+
+    config['clair_url'] = url
     return url
 
 
@@ -145,6 +167,19 @@ def get_tags(url, team, art, access_token):
     return r.json()
 
 
+def get_clair_features(url, layer_id, access_token):
+    if layer_id is None:
+        return []
+
+    r = request(url, '/v1/layers/{}?vulnerabilities&features'.format(layer_id), access_token)
+    if r.status_code == 404:
+        # empty list of tags (layer does not exist)
+        return []
+    else:
+        r.raise_for_status()
+    return r.json()['Layer']['Features']
+
+
 @cli.command()
 @click.argument('team', callback=validate_team)
 @url_option
@@ -202,6 +237,55 @@ def tags(config, team: str, artifact, url, output):
         }
         print_table(['team', 'artifact', 'tag', 'created_time', 'created_by',
                      'severity_fix_available', 'severity_no_fix_available'],
+                    rows, titles=titles, styles=styles)
+
+
+@cli.command()
+@click.argument('team', callback=validate_team)
+@click.argument('artifact')
+@click.argument('tag')
+@url_option
+@clair_url_option
+@output_option
+@click.pass_obj
+def cves(config, team, artifact, tag, url, clair_url, output):
+    '''List all CVE's found by Clair service for a specific artifact tag'''
+    set_pierone_url(config, url)
+    set_clair_url(config, clair_url)
+
+    rows = []
+    token = get_token()
+    for artifact_tag in get_tags(config.get('url'), team, artifact, token):
+        if artifact_tag['name'] == tag:
+            installed_software = get_clair_features(config.get('clair_url'), artifact_tag.get('clair_id'), token)
+            for software_pkg in installed_software:
+                for cve in software_pkg.get('Vulnerabilities', []):
+                    rows.append({
+                        'cve': cve['Name'],
+                        'severity': cve['Severity'],
+                        'affected_feature': '{}:{}'.format(software_pkg['Name'],
+                                                           software_pkg['Version']),
+                        'fixing_feature': cve.get(
+                            'FixedBy') and '{}:{}'.format(software_pkg['Name'],
+                                                          cve['FixedBy']),
+                        'link': cve['Link'],
+                    })
+
+    severity_rating = ['Critical', 'High', 'Medium', 'Low', 'Negligible', 'Unknown', 'Pending']
+    rows.sort(key=lambda row: severity_rating.index(row['severity']))
+    with OutputFormat(output):
+        titles = {
+            'cve': 'CVE',
+            'severity': 'Severity',
+            'affected_feature': 'Affected Feature',
+            'fixing_feature': 'Fixing Feature',
+            'link': 'Link'
+        }
+        styles = {
+            'Critical': {'bold': True},
+            'High': {'bold': True}
+        }
+        print_table(['cve', 'severity', 'affected_feature', 'fixing_feature', 'link'],
                     rows, titles=titles, styles=styles)
 
 

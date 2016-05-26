@@ -107,7 +107,7 @@ def test_tags(monkeypatch, tmpdir):
             "name": "1.1",
             "created": "2016-05-19T15:23:41.065Z",
             "created_by": "myuser",
-            "image": "longid:here",
+            "image": "sha256:here",
             "clair_id": None,
             "severity_fix_available": None,
             "severity_no_fix_available": None
@@ -117,8 +117,8 @@ def test_tags(monkeypatch, tmpdir):
             "name": "1.2",
             "created": "2016-05-23T13:29:17.753Z",
             "created_by": "myuser",
-            "image": "longid:here",
-            "clair_id": "longid:here",
+            "image": "sha256:here",
+            "clair_id": "sha256:here",
             "severity_fix_available": "High",
             "severity_no_fix_available": "Medium"
         }
@@ -135,6 +135,57 @@ def test_tags(monkeypatch, tmpdir):
         assert 'Fixable CVE Severity' in result.output
         assert 'Unfixable CVE Severity' in result.output
         assert re.search('High\s+Medium', result.output), 'Should how information about CVEs'
+
+
+def test_cves(monkeypatch, tmpdir):
+    pierone_service_payload = [
+        # Former pierone payload
+        {
+            'name': '1.0',
+            'created_by': 'myuser',
+            'created': '2015-08-20T08:14:59.432Z'
+        },
+        # New pierone payload with clair but no information about CVEs
+        {
+            "name": "1.1",
+            "created": "2016-05-19T15:23:41.065Z",
+            "created_by": "myuser",
+            "image": "sha256:here",
+            "clair_id": None,
+            "severity_fix_available": None,
+            "severity_no_fix_available": None
+        },
+        # New pierone payload with clair input and info about CVEs
+        {
+            "name": "1.2",
+            "created": "2016-05-23T13:29:17.753Z",
+            "created_by": "myuser",
+            "image": "sha256:here",
+            "clair_id": "sha256:here",
+            "severity_fix_available": "High",
+            "severity_no_fix_available": "Medium"
+        }
+    ]
+
+    with open(os.path.join(os.path.dirname(__file__),
+                           'fixtures', 'clair_response.json'), 'r') as fixture:
+        clair_service_payload = json.loads(fixture.read())
+
+    response = MagicMock()
+    response.json.side_effect = [
+        pierone_service_payload,
+        clair_service_payload
+    ]
+
+    runner = CliRunner()
+    monkeypatch.setattr('stups_cli.config.load_config', lambda x: {'url': 'foobar', 'clair_url': 'barfoo'})
+    monkeypatch.setattr('zign.api.get_token', MagicMock(return_value='tok123'))
+    monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
+    monkeypatch.setattr('pierone.api.session.get', MagicMock(return_value=response))
+    with runner.isolated_filesystem():
+        result = runner.invoke(cli, ['cves', 'myteam', 'myart', '1.2'], catch_exceptions=False)
+        assert 'CVE-2013-5123' in result.output
+        assert re.match('[^\n]+\n[^\n]+High', result.output), 'Results should be ordered by highest priority'
 
 
 def test_latest(monkeypatch, tmpdir):
