@@ -1,20 +1,18 @@
 import datetime
 import os
 import re
-
-import click
-
-import requests
 import tarfile
 import tempfile
 import time
-import zign.api
-from clickclick import error, AliasedGroup, print_table, OutputFormat, UrlType
 
-from .api import docker_login, request, get_latest_tag, DockerImage
+import click
 import pierone
+import requests
 import stups_cli.config
+import zign.api
+from clickclick import AliasedGroup, OutputFormat, UrlType, error, print_table
 
+from .api import DockerImage, docker_login, get_latest_tag, request
 
 KEYRING_KEY = 'pierone'
 
@@ -24,6 +22,48 @@ output_option = click.option('-o', '--output', type=click.Choice(['text', 'json'
                              help='Use alternative output format')
 
 url_option = click.option('--url', help='Pier One URL', metavar='URI')
+clair_url_option = click.option('--clair-url', help='Clair URL', metavar='CLAIR_URI')
+
+CVE_STYLES = {
+    'TOO_OLD': {
+        'bold': True,
+        'fg': 'red'
+    },
+    'NOT_PROCESSED_YET': {
+        'bold': True,
+        'fg': 'red'
+    },
+    'COULDNT_FIGURE_OUT': {
+        'bold': True,
+        'fg': 'red'
+    },
+    'CRITICAL': {
+        'bold': True,
+        'fg': 'red'
+    },
+    'HIGH': {
+        'bold': True,
+        'fg': 'red'
+    },
+    'MEDIUM': {
+        'fg': 'yellow'
+    },
+    'LOW': {
+        'fg': 'yellow'
+    },
+    'NEGLIGIBLE': {
+        'fg': 'yellow'
+    },
+    'UNKNOWN': {
+        'fg': 'yellow'
+    },
+    'PENDING': {
+        'fg': 'yellow'
+    },
+    'NO_CVES_FOUND': {
+        'fg': 'green'
+    }
+}
 
 TEAM_PATTERN_STR = r'[a-z][a-z0-9-]+'
 TEAM_PATTERN = re.compile(r'^{}$'.format(TEAM_PATTERN_STR))
@@ -54,6 +94,19 @@ def parse_time(s: str) -> float:
         return None
 
 
+def parse_severity(value, clair_id_exists):
+    '''Parse severity values to displayable values'''
+    if value is None and clair_id_exists:
+        return 'NOT_PROCESSED_YET'
+    elif value is None:
+        return 'TOO_OLD'
+
+    value = re.sub('^clair:', '', value)
+    value = re.sub('(?P<upper_letter>(?<=[a-z])[A-Z])', '_\g<upper_letter>', value)
+
+    return value.upper()
+
+
 def print_version(ctx, param, value):
     if not value or ctx.resilient_parsing:
         return
@@ -79,6 +132,28 @@ def set_pierone_url(config: dict, url: str) -> None:
         url = 'https://{}'.format(url)
 
     config['url'] = url
+    return url
+
+
+def set_clair_url(config: dict, url: str) -> None:
+    '''Read Clair URL from cli, from config file or from stdin.'''
+    url = url or config.get('clair_url')
+
+    while not url:
+        url = click.prompt('Please enter the Clair URL', type=UrlType())
+
+        try:
+            requests.get(url, timeout=5)
+        except:
+            error('Could not reach {}'.format(url))
+            url = None
+
+    if '://' not in url:
+        # issue 63: gracefully handle URLs without scheme
+        url = 'https://{}'.format(url)
+
+    config['clair_url'] = url
+    stups_cli.config.store_config(config, 'pierone')
     return url
 
 
@@ -147,6 +222,19 @@ def get_tags(url, team, art, access_token):
     return r.json()
 
 
+def get_clair_features(url, layer_id, access_token):
+    if layer_id is None:
+        return []
+
+    r = request(url, '/v1/layers/{}?vulnerabilities&features'.format(layer_id), access_token)
+    if r.status_code == 404:
+        # empty list of tags (layer does not exist)
+        return []
+    else:
+        r.raise_for_status()
+    return r.json()['Layer']['Features']
+
+
 @cli.command()
 @click.argument('team', callback=validate_team)
 @url_option
@@ -184,14 +272,69 @@ def tags(config, team: str, artifact, url, output):
                       'artifact': art,
                       'tag': row['name'],
                       'created_by': row['created_by'],
-                      'created_time': parse_time(row['created'])}
+                      'created_time': parse_time(row['created']),
+                      'severity_fix_available': parse_severity(
+                          row.get('severity_fix_available'), row.get('clair_id', False)),
+                      'severity_no_fix_available': parse_severity(
+                          row.get('severity_no_fix_available'), row.get('clair_id', False))}
                      for row in r])
 
     # sorts are guaranteed to be stable, i.e. tags will be sorted by time (as returned from REST service)
     rows.sort(key=lambda row: (row['team'], row['artifact']))
     with OutputFormat(output):
-        print_table(['team', 'artifact', 'tag', 'created_time', 'created_by'], rows,
-                    titles={'created_time': 'Created', 'created_by': 'By'})
+        titles = {
+            'created_time': 'Created',
+            'created_by': 'By',
+            'severity_fix_available': 'Fixable CVE Severity',
+            'severity_no_fix_available': 'Unfixable CVE Severity'
+        }
+        print_table(['team', 'artifact', 'tag', 'created_time', 'created_by',
+                     'severity_fix_available', 'severity_no_fix_available'],
+                    rows, titles=titles, styles=CVE_STYLES)
+
+
+@cli.command()
+@click.argument('team', callback=validate_team)
+@click.argument('artifact')
+@click.argument('tag')
+@url_option
+@clair_url_option
+@output_option
+@click.pass_obj
+def cves(config, team, artifact, tag, url, clair_url, output):
+    '''List all CVE's found by Clair service for a specific artifact tag'''
+    set_pierone_url(config, url)
+    set_clair_url(config, clair_url)
+
+    rows = []
+    token = get_token()
+    for artifact_tag in get_tags(config.get('url'), team, artifact, token):
+        if artifact_tag['name'] == tag:
+            installed_software = get_clair_features(config.get('clair_url'), artifact_tag.get('clair_id'), token)
+            for software_pkg in installed_software:
+                for cve in software_pkg.get('Vulnerabilities', []):
+                    rows.append({
+                        'cve': cve['Name'],
+                        'severity': cve['Severity'].upper(),
+                        'affected_feature': '{}:{}'.format(software_pkg['Name'],
+                                                           software_pkg['Version']),
+                        'fixing_feature': cve.get(
+                            'FixedBy') and '{}:{}'.format(software_pkg['Name'],
+                                                          cve['FixedBy']),
+                        'link': cve['Link'],
+                    })
+    severity_rating = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'NEGLIGIBLE', 'UNKNOWN', 'PENDING']
+    rows.sort(key=lambda row: severity_rating.index(row['severity']))
+    with OutputFormat(output):
+        titles = {
+            'cve': 'CVE',
+            'severity': 'Severity',
+            'affected_feature': 'Affected Feature',
+            'fixing_feature': 'Fixing Feature',
+            'link': 'Link'
+        }
+        print_table(['cve', 'severity', 'affected_feature', 'fixing_feature', 'link'],
+                    rows, titles=titles, styles=CVE_STYLES)
 
 
 @cli.command()
