@@ -24,6 +24,47 @@ output_option = click.option('-o', '--output', type=click.Choice(['text', 'json'
 url_option = click.option('--url', help='Pier One URL', metavar='URI')
 clair_url_option = click.option('--clair-url', help='Clair URL', metavar='CLAIR_URI')
 
+CVE_STYLES = {
+    'TOO_OLD': {
+        'bold': True,
+        'fg': 'red'
+    },
+    'NOT_PROCESSED_YET': {
+        'bold': True,
+        'fg': 'red'
+    },
+    'COULDNT_FIGURE_OUT': {
+        'bold': True,
+        'fg': 'red'
+    },
+    'CRITICAL': {
+        'bold': True,
+        'fg': 'red'
+    },
+    'HIGH': {
+        'bold': True,
+        'fg': 'red'
+    },
+    'MEDIUM': {
+        'fg': 'yellow'
+    },
+    'LOW': {
+        'fg': 'yellow'
+    },
+    'NEGLIGIBLE': {
+        'fg': 'yellow'
+    },
+    'UNKNOWN': {
+        'fg': 'yellow'
+    },
+    'PENDING': {
+        'fg': 'yellow'
+    },
+    'NO_CVES_FOUND': {
+        'fg': 'green'
+    }
+}
+
 TEAM_PATTERN_STR = r'[a-z][a-z0-9-]+'
 TEAM_PATTERN = re.compile(r'^{}$'.format(TEAM_PATTERN_STR))
 
@@ -51,6 +92,19 @@ def parse_time(s: str) -> float:
     except Exception as e:
         print(e)
         return None
+
+
+def parse_severity(value, clair_id_exists):
+    '''Parse severity values to displayable values'''
+    if value is None and clair_id_exists:
+        return 'NOT_PROCESSED_YET'
+    elif value is None:
+        return 'TOO_OLD'
+
+    value = re.sub('^clair:', '', value)
+    value = re.sub('(?P<upper_letter>(?<=[a-z])[A-Z])', '_\g<upper_letter>', value)
+
+    return value.upper()
 
 
 def print_version(ctx, param, value):
@@ -99,6 +153,7 @@ def set_clair_url(config: dict, url: str) -> None:
         url = 'https://{}'.format(url)
 
     config['clair_url'] = url
+    stups_cli.config.store_config(config, 'pierone')
     return url
 
 
@@ -218,8 +273,10 @@ def tags(config, team: str, artifact, url, output):
                       'tag': row['name'],
                       'created_by': row['created_by'],
                       'created_time': parse_time(row['created']),
-                      'severity_fix_available': row.get('severity_fix_available'),
-                      'severity_no_fix_available': row.get('severity_no_fix_available')}
+                      'severity_fix_available': parse_severity(
+                          row.get('severity_fix_available'), row.get('clair_id', False)),
+                      'severity_no_fix_available': parse_severity(
+                          row.get('severity_no_fix_available'), row.get('clair_id', False))}
                      for row in r])
 
     # sorts are guaranteed to be stable, i.e. tags will be sorted by time (as returned from REST service)
@@ -231,13 +288,9 @@ def tags(config, team: str, artifact, url, output):
             'severity_fix_available': 'Fixable CVE Severity',
             'severity_no_fix_available': 'Unfixable CVE Severity'
         }
-        styles = {
-            'Critical': {'bold': True},
-            'High': {'bold': True}
-        }
         print_table(['team', 'artifact', 'tag', 'created_time', 'created_by',
                      'severity_fix_available', 'severity_no_fix_available'],
-                    rows, titles=titles, styles=styles)
+                    rows, titles=titles, styles=CVE_STYLES)
 
 
 @cli.command()
@@ -262,7 +315,7 @@ def cves(config, team, artifact, tag, url, clair_url, output):
                 for cve in software_pkg.get('Vulnerabilities', []):
                     rows.append({
                         'cve': cve['Name'],
-                        'severity': cve['Severity'],
+                        'severity': cve['Severity'].upper(),
                         'affected_feature': '{}:{}'.format(software_pkg['Name'],
                                                            software_pkg['Version']),
                         'fixing_feature': cve.get(
@@ -270,8 +323,7 @@ def cves(config, team, artifact, tag, url, clair_url, output):
                                                           cve['FixedBy']),
                         'link': cve['Link'],
                     })
-
-    severity_rating = ['Critical', 'High', 'Medium', 'Low', 'Negligible', 'Unknown', 'Pending']
+    severity_rating = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'NEGLIGIBLE', 'UNKNOWN', 'PENDING']
     rows.sort(key=lambda row: severity_rating.index(row['severity']))
     with OutputFormat(output):
         titles = {
@@ -281,12 +333,8 @@ def cves(config, team, artifact, tag, url, clair_url, output):
             'fixing_feature': 'Fixing Feature',
             'link': 'Link'
         }
-        styles = {
-            'Critical': {'bold': True},
-            'High': {'bold': True}
-        }
         print_table(['cve', 'severity', 'affected_feature', 'fixing_feature', 'link'],
-                    rows, titles=titles, styles=styles)
+                    rows, titles=titles, styles=CVE_STYLES)
 
 
 @cli.command()

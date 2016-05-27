@@ -102,7 +102,7 @@ def test_tags(monkeypatch, tmpdir):
             'created_by': 'myuser',
             'created': '2015-08-20T08:14:59.432Z'
         },
-        # New pierone payload with clair but no information about CVEs
+        # New pierone payload with clair but no information about CVEs -- old images
         {
             "name": "1.1",
             "created": "2016-05-19T15:23:41.065Z",
@@ -111,6 +111,36 @@ def test_tags(monkeypatch, tmpdir):
             "clair_id": None,
             "severity_fix_available": None,
             "severity_no_fix_available": None
+        },
+        # New pierone payload with clair but no information about CVEs -- still processing
+        {
+            "name": "1.1",
+            "created": "2016-05-19T15:23:41.065Z",
+            "created_by": "myuser",
+            "image": "sha256:here",
+            "clair_id": "sha256:here",
+            "severity_fix_available": None,
+            "severity_no_fix_available": None
+        },
+        # New pierone payload with clair but could not figure out
+        {
+            "name": "1.1",
+            "created": "2016-05-19T15:23:41.065Z",
+            "created_by": "myuser",
+            "image": "sha256:here",
+            "clair_id": "sha256:here",
+            "severity_fix_available": "clair:CouldntFigureOut",
+            "severity_no_fix_available": "clair:CouldntFigureOut"
+        },
+        # New pierone payload with clair with no CVEs found
+        {
+            "name": "1.1",
+            "created": "2016-05-19T15:23:41.065Z",
+            "created_by": "myuser",
+            "image": "sha256:here",
+            "clair_id": "sha256:here",
+            "severity_fix_available": "clair:NoCVEsFound",
+            "severity_no_fix_available": "clair:NoCVEsFound"
         },
         # New pierone payload with clair input and info about CVEs
         {
@@ -134,7 +164,10 @@ def test_tags(monkeypatch, tmpdir):
         assert '1.0' in result.output
         assert 'Fixable CVE Severity' in result.output
         assert 'Unfixable CVE Severity' in result.output
-        assert re.search('High\s+Medium', result.output), 'Should how information about CVEs'
+        assert 'TOO_OLD' in result.output
+        assert 'NOT_PROCESSED_YET' in result.output
+        assert 'NO_CVES_FOUND' in result.output
+        assert re.search('HIGH\s+MEDIUM', result.output), 'Should how information about CVEs'
 
 
 def test_cves(monkeypatch, tmpdir):
@@ -185,7 +218,7 @@ def test_cves(monkeypatch, tmpdir):
     with runner.isolated_filesystem():
         result = runner.invoke(cli, ['cves', 'myteam', 'myart', '1.2'], catch_exceptions=False)
         assert 'CVE-2013-5123' in result.output
-        assert re.match('[^\n]+\n[^\n]+High', result.output), 'Results should be ordered by highest priority'
+        assert re.match('[^\n]+\n[^\n]+HIGH', result.output), 'Results should be ordered by highest priority'
 
 
 def test_latest(monkeypatch, tmpdir):
