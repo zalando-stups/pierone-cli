@@ -248,7 +248,8 @@ def test_latest_not_found(monkeypatch, tmpdir):
     monkeypatch.setattr('pierone.api.session.get', MagicMock(return_value=response))
     with runner.isolated_filesystem():
         result = runner.invoke(cli, ['latest', 'myteam', 'myart'], catch_exceptions=False)
-        assert 'None' == result.output.rstrip()
+        assert 'Error: Latest tag not found' == result.output.rstrip()
+        assert result.exit_code == 1
 
 
 def test_url_without_scheme(monkeypatch, tmpdir):

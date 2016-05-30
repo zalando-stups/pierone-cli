@@ -13,6 +13,7 @@ import zign.api
 from clickclick import AliasedGroup, OutputFormat, UrlType, error, print_table
 
 from .api import DockerImage, docker_login, get_latest_tag, request
+from .exceptions import PieroneException
 
 KEYRING_KEY = 'pierone'
 
@@ -354,7 +355,11 @@ def latest(config, team, artifact, url, output):
         registry = registry[8:]
     image = DockerImage(registry=registry, team=team, artifact=artifact, tag=None)
 
-    print(get_latest_tag(token, image))
+    latest_tag = get_latest_tag(token, image)
+    if latest_tag:
+        print(latest_tag)
+    else:
+        raise PieroneException('Latest tag not found')
 
 
 @cli.command('scm-source')
