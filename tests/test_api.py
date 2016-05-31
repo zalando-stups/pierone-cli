@@ -5,7 +5,8 @@ from unittest.mock import MagicMock, ANY
 import pytest
 import yaml
 from pierone.api import (DockerImage, Unauthorized, docker_login,
-                         get_latest_tag, image_exists)
+                         get_image_tag, get_image_tags, get_latest_tag,
+                         image_exists)
 
 import requests.exceptions
 
@@ -219,3 +220,63 @@ def test_image_not_exists(monkeypatch):
     data = image_exists(token_name, image)
 
     assert data is False
+
+
+def test_get_image_tags(monkeypatch):
+    response = MagicMock()
+    response.status_code = 200
+    response.json.return_value = [{'created': '2015-06-01T14:12:03.276+0000',
+                                   'created_by': 'foobar',
+                                   'name': '0.17'}]
+    monkeypatch.setattr('pierone.api.session.get', MagicMock(return_value=response))
+    monkeypatch.setattr('pierone.api.get_existing_token', MagicMock(return_value={'access_token': 'tok123'}))
+    token_name = 'dummy'
+    image = DockerImage(registry='registry', team='foo', artifact='bar', tag=None)
+
+    image_tags = get_image_tags(token_name, image)
+    tag = image_tags[0]
+
+    assert tag['team'] == 'foo'
+    assert tag['artifact'] == 'bar'
+    assert tag['tag'] == '0.17'
+    assert tag['created_by'] == 'foobar'
+    assert tag['severity_fix_available'] == 'TOO_OLD'
+    assert tag['severity_no_fix_available'] == 'TOO_OLD'
+
+
+def test_get_image_tag(monkeypatch):
+    response = MagicMock()
+    response.status_code = 200
+    response.json.return_value = [{'created': '2015-06-01T14:12:03.276+0000',
+                                   'created_by': 'foobar',
+                                   'name': '0.17'},
+                                  {'created': '2015-06-11T16:13:29.152+0000',
+                                   'created_by': 'foobar',
+                                   'name': '0.22'}]
+    monkeypatch.setattr('pierone.api.session.get', MagicMock(return_value=response))
+    monkeypatch.setattr('pierone.api.get_existing_token', MagicMock(return_value={'access_token': 'tok123'}))
+    token_name = 'dummy'
+    image = DockerImage(registry='registry', team='foo', artifact='bar', tag='0.22')
+
+    tag = get_image_tag(token_name, image)
+
+    assert tag['team'] == 'foo'
+    assert tag['artifact'] == 'bar'
+    assert tag['tag'] == '0.22'
+    assert tag['created_by'] == 'foobar'
+    assert tag['severity_fix_available'] == 'TOO_OLD'
+    assert tag['severity_no_fix_available'] == 'TOO_OLD'
+
+
+def test_get_image_tag_that_does_not_exist(monkeypatch):
+    response = MagicMock()
+    response.status_code = 200
+    response.json.return_value = [{'created': '2015-06-01T14:12:03.276+0000',
+                                   'created_by': 'foobar',
+                                   'name': '0.17'}]
+    monkeypatch.setattr('pierone.api.session.get', MagicMock(return_value=response))
+    monkeypatch.setattr('pierone.api.get_existing_token', MagicMock(return_value={'access_token': 'tok123'}))
+    token_name = 'dummy'
+    image = DockerImage(registry='registry', team='foo', artifact='bar', tag='1.22')
+
+    assert get_image_tag(token_name, image) is None

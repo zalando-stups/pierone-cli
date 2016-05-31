@@ -1,7 +1,11 @@
 import codecs
 import collections
+import datetime
 import json
 import os
+import re
+import time
+from typing import Optional
 
 import requests
 from clickclick import Action
@@ -109,6 +113,29 @@ def image_exists(token_name: str, image: DockerImage) -> bool:
     return image.tag in result
 
 
+def get_image_tag(token_name: str, image: DockerImage) -> Optional[dict]:
+    for entry in get_image_tags(token_name, image):
+        if entry['tag'] == image.tag:
+            return entry
+    return None
+
+
+def get_image_tags(token_name: str, image: DockerImage) -> Optional[list]:
+    token = get_existing_token(token_name)
+    if not token:
+        raise Unauthorized()
+
+    url = 'https://{}'.format(image.registry)
+    path = '/teams/{team}/artifacts/{artifact}/tags'.format(team=image.team, artifact=image.artifact)
+
+    response = request(url, path, token['access_token'])
+    if response.status_code == 404:
+        return None
+
+    return [parse_pierone_artifact_dict(entry, image.team, image.artifact)
+            for entry in response.json()]
+
+
 def get_latest_tag(token: str, image: DockerImage) -> bool:
     url = 'https://{}'.format(image.registry)
     path = '/teams/{team}/artifacts/{artifact}/tags'.format(team=image.team, artifact=image.artifact)
@@ -123,3 +150,48 @@ def get_latest_tag(token: str, image: DockerImage) -> bool:
         return sorted(result, key=lambda x: x['created'])[-1]['name']
     else:
         return None
+
+
+def parse_pierone_artifact_dict(original_payload_from_api, team, artifact) -> dict:
+    return {'team': team,
+            'artifact': artifact,
+            'tag': original_payload_from_api['name'],
+            'created_by': original_payload_from_api['created_by'],
+            'created_time': parse_time(original_payload_from_api['created']),
+            'severity_fix_available': parse_severity(
+                original_payload_from_api.get('severity_fix_available'),
+                original_payload_from_api.get('clair_id', False)),
+            'severity_no_fix_available': parse_severity(
+                original_payload_from_api.get('severity_no_fix_available'),
+                original_payload_from_api.get('clair_id', False))}
+
+
+def parse_time(s: str) -> float:
+    '''
+    >>> parse_time('foo')
+    time data 'foo' does not match format '%Y-%m-%dT%H:%M:%S.%fZ'
+    >>> parse_time('2015-04-14T19:09:01.000Z') > 0
+    True
+    '''
+    try:
+        utc = datetime.datetime.strptime(s, '%Y-%m-%dT%H:%M:%S.%fZ')
+        ts = time.time()
+        utc_offset = datetime.datetime.fromtimestamp(ts) - datetime.datetime.utcfromtimestamp(ts)
+        local = utc + utc_offset
+        return local.timestamp()
+    except Exception as e:
+        print(e)
+        return None
+
+
+def parse_severity(value, clair_id_exists) -> str:
+    '''Parse severity values to displayable values'''
+    if value is None and clair_id_exists:
+        return 'NOT_PROCESSED_YET'
+    elif value is None:
+        return 'TOO_OLD'
+
+    value = re.sub('^clair:', '', value)
+    value = re.sub('(?P<upper_letter>(?<=[a-z])[A-Z])', '_\g<upper_letter>', value)
+
+    return value.upper()

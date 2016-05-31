@@ -1,9 +1,7 @@
-import datetime
 import os
 import re
 import tarfile
 import tempfile
-import time
 
 import click
 import pierone
@@ -12,7 +10,8 @@ import stups_cli.config
 import zign.api
 from clickclick import AliasedGroup, OutputFormat, UrlType, error, print_table
 
-from .api import DockerImage, docker_login, get_latest_tag, request
+from .api import (DockerImage, Unauthorized, docker_login, get_image_tags,
+                  get_latest_tag, parse_time, request)
 from .exceptions import PieroneException
 
 KEYRING_KEY = 'pierone'
@@ -68,37 +67,6 @@ def validate_team(ctx, param, value):
         msg = 'Team ID must satisfy regular expression pattern "{}"'.format(TEAM_PATTERN_STR)
         raise click.BadParameter(msg)
     return value
-
-
-def parse_time(s: str) -> float:
-    '''
-    >>> parse_time('foo')
-    time data 'foo' does not match format '%Y-%m-%dT%H:%M:%S.%fZ'
-    >>> parse_time('2015-04-14T19:09:01.000Z') > 0
-    True
-    '''
-    try:
-        utc = datetime.datetime.strptime(s, '%Y-%m-%dT%H:%M:%S.%fZ')
-        ts = time.time()
-        utc_offset = datetime.datetime.fromtimestamp(ts) - datetime.datetime.utcfromtimestamp(ts)
-        local = utc + utc_offset
-        return local.timestamp()
-    except Exception as e:
-        print(e)
-        return None
-
-
-def parse_severity(value, clair_id_exists):
-    '''Parse severity values to displayable values'''
-    if value is None and clair_id_exists:
-        return 'NOT_PROCESSED_YET'
-    elif value is None:
-        return 'TOO_OLD'
-
-    value = re.sub('^clair:', '', value)
-    value = re.sub('(?P<upper_letter>(?<=[a-z])[A-Z])', '_\g<upper_letter>', value)
-
-    return value.upper()
 
 
 def print_version(ctx, param, value):
@@ -242,22 +210,28 @@ def tags(config, team: str, artifact, url, output, limit):
 
     if not artifact:
         artifact = get_artifacts(config.get('url'), team, token)
+        if not artifact:
+            raise click.UsageError('Either Team does not exist or currently does not artifacts in Pierone! '
+                                   'Please double check for spelling mistakes.')
+
+    registry = config.get('url')
+    if registry.startswith('https://'):
+        registry = registry[8:]
 
     slice_from = - limit
 
     rows = []
     for art in artifact:
-        r = get_tags(config.get('url'), team, art, token)
-        rows.extend([{'team': team,
-                      'artifact': art,
-                      'tag': row['name'],
-                      'created_by': row['created_by'],
-                      'created_time': parse_time(row['created']),
-                      'severity_fix_available': parse_severity(
-                          row.get('severity_fix_available'), row.get('clair_id', False)),
-                      'severity_no_fix_available': parse_severity(
-                          row.get('severity_no_fix_available'), row.get('clair_id', False))}
-                     for row in r[slice_from:]])
+        image = DockerImage(registry=registry, team=team, artifact=art, tag=None)
+        try:
+            tags = get_image_tags('pierone', image)[slice_from:]
+        except Unauthorized as e:
+            raise click.ClickException(str(e))
+        else:
+            if tags is None:
+                raise click.UsageError('Artifact or Team does not exist! '
+                                       'Please double check for spelling mistakes.')
+            rows.extend(tags)
 
     # sorts are guaranteed to be stable, i.e. tags will be sorted by time (as returned from REST service)
     rows.sort(key=lambda row: (row['team'], row['artifact']))
