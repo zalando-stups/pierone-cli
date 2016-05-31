@@ -232,7 +232,8 @@ def get_clair_features(url, layer_id, access_token):
         return []
     else:
         r.raise_for_status()
-    return r.json()['Layer']['Features']
+
+    return r.json()['Layer'].get('Features', [])
 
 
 @cli.command()
