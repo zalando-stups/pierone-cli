@@ -5,7 +5,6 @@ import json
 import os
 import re
 import time
-from typing import Optional
 
 import requests
 from clickclick import Action
@@ -113,14 +112,14 @@ def image_exists(token_name: str, image: DockerImage) -> bool:
     return image.tag in result
 
 
-def get_image_tag(token_name: str, image: DockerImage) -> Optional[dict]:
+def get_image_tag(token_name: str, image: DockerImage) -> dict:
     for entry in get_image_tags(token_name, image):
         if entry['tag'] == image.tag:
             return entry
     return None
 
 
-def get_image_tags(token_name: str, image: DockerImage) -> Optional[list]:
+def get_image_tags(token_name: str, image: DockerImage) -> list:
     token = get_existing_token(token_name)
     if not token:
         raise Unauthorized()
