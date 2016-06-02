@@ -34,6 +34,57 @@ def test_login(monkeypatch, tmpdir):
         assert result.output.rstrip().endswith('OK')
 
 
+def test_login_arg_user(monkeypatch, tmpdir):
+    arg_user = 'arg_user'
+    zign_user = 'zign_user'
+    env_user = 'env_user'
+
+    runner = CliRunner()
+
+    def mock_docker_login(url, realm, name, user, password, token_url=None, use_keyring=True, prompt=False):
+        assert arg_user == user
+
+    monkeypatch.setattr('zign.api.get_config', lambda: {'user': zign_user})
+    monkeypatch.setattr('os.getenv', lambda x: env_user)
+    monkeypatch.setattr('pierone.cli.docker_login', mock_docker_login)
+
+    with runner.isolated_filesystem():
+        result = runner.invoke(cli, ['login', '-U', arg_user], catch_exceptions=False, input='pieroneurl\n')
+
+
+def test_login_zign_user(monkeypatch, tmpdir):
+    zign_user = 'zign_user'
+    env_user = 'env_user'
+
+    runner = CliRunner()
+
+    def mock_docker_login(url, realm, name, user, password, token_url=None, use_keyring=True, prompt=False):
+        assert zign_user == user
+
+    monkeypatch.setattr('zign.api.get_config', lambda: {'user': zign_user})
+    monkeypatch.setattr('os.getenv', lambda: env_user)
+    monkeypatch.setattr('pierone.cli.docker_login', mock_docker_login)
+
+    with runner.isolated_filesystem():
+        result = runner.invoke(cli, ['login'], catch_exceptions=False, input='pieroneurl\n')
+
+
+def test_login_env_user(monkeypatch, tmpdir):
+    env_user = 'env_user'
+
+    runner = CliRunner()
+
+    def mock_docker_login(url, realm, name, user, password, token_url=None, use_keyring=True, prompt=False):
+        assert env_user == user
+
+    monkeypatch.setattr('zign.api.get_config', lambda: {'user': ''})
+    monkeypatch.setattr('os.getenv', lambda x: env_user)
+    monkeypatch.setattr('pierone.cli.docker_login', mock_docker_login)
+
+    with runner.isolated_filesystem():
+        result = runner.invoke(cli, ['login'], catch_exceptions=False, input='pieroneurl\n')
+
+
 def test_login_given_url_option(monkeypatch, tmpdir):
     response = MagicMock()
 
