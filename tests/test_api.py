@@ -132,19 +132,6 @@ def test_get_latest_tag_non_json(monkeypatch):
     assert data is None
 
 
-def test_unauthorized(monkeypatch):
-    monkeypatch.setattr('pierone.api.get_existing_token', MagicMock(return_value=None))
-    token_name = 'dummy'
-    image = DockerImage(registry='registry', team='foo', artifact='bar', tag='latest')
-    with pytest.raises(Unauthorized) as excinfo:
-        get_latest_tag(token_name, image)
-    assert 'Unauthorized: token missing or invalid' in str(excinfo.value)
-
-    with pytest.raises(Unauthorized) as excinfo:
-        image_exists(token_name, image)
-    assert 'Unauthorized: token missing or invalid' in str(excinfo.value)
-
-
 def test_image_exists(monkeypatch):
     response = MagicMock()
     response.status_code = 200

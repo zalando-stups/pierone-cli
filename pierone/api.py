@@ -99,16 +99,12 @@ def image_exists(token_name: str, image: DockerImage) -> bool:
     return image.tag in result
 
 
-def get_latest_tag(token_name: str, image: DockerImage) -> bool:
-    token = get_existing_token(token_name)
-    if not token:
-        raise Unauthorized()
-
+def get_latest_tag(token: str, image: DockerImage) -> bool:
     url = 'https://{}'.format(image.registry)
     path = '/teams/{team}/artifacts/{artifact}/tags'.format(team=image.team, artifact=image.artifact)
 
     try:
-        r = request(url, path, token['access_token'])
+        r = request(url, path, token)
         r.raise_for_status()
     except:
         return None
