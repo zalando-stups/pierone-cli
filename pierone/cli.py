@@ -176,7 +176,7 @@ def login(config, url, realm, name, user, password):
     '''Login to Pier One Docker registry (generates ~/.dockercfg'''
     url_option_was_set = url
     url = set_pierone_url(config, url)
-    user = user or os.getenv('USER')
+    user = user or zign.api.get_config().get('user') or os.getenv('USER')
 
     if not url_option_was_set:
         stups_cli.config.store_config(config, 'pierone')
