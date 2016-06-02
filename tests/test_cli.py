@@ -39,6 +39,8 @@ def test_login_arg_user(monkeypatch, tmpdir):
     zign_user = 'zign_user'
     env_user = 'env_user'
 
+    response = MagicMock()
+
     runner = CliRunner()
 
     def mock_docker_login(url, realm, name, user, password, token_url=None, use_keyring=True, prompt=False):
@@ -47,6 +49,7 @@ def test_login_arg_user(monkeypatch, tmpdir):
     monkeypatch.setattr('zign.api.get_config', lambda: {'user': zign_user})
     monkeypatch.setattr('os.getenv', lambda x: env_user)
     monkeypatch.setattr('pierone.cli.docker_login', mock_docker_login)
+    monkeypatch.setattr('requests.get', lambda x, timeout: response)
 
     with runner.isolated_filesystem():
         result = runner.invoke(cli, ['login', '-U', arg_user], catch_exceptions=False, input='pieroneurl\n')
@@ -56,6 +59,8 @@ def test_login_zign_user(monkeypatch, tmpdir):
     zign_user = 'zign_user'
     env_user = 'env_user'
 
+    response = MagicMock()
+
     runner = CliRunner()
 
     def mock_docker_login(url, realm, name, user, password, token_url=None, use_keyring=True, prompt=False):
@@ -64,6 +69,7 @@ def test_login_zign_user(monkeypatch, tmpdir):
     monkeypatch.setattr('zign.api.get_config', lambda: {'user': zign_user})
     monkeypatch.setattr('os.getenv', lambda: env_user)
     monkeypatch.setattr('pierone.cli.docker_login', mock_docker_login)
+    monkeypatch.setattr('requests.get', lambda x, timeout: response)
 
     with runner.isolated_filesystem():
         result = runner.invoke(cli, ['login'], catch_exceptions=False, input='pieroneurl\n')
@@ -71,6 +77,8 @@ def test_login_zign_user(monkeypatch, tmpdir):
 
 def test_login_env_user(monkeypatch, tmpdir):
     env_user = 'env_user'
+
+    response = MagicMock()
 
     runner = CliRunner()
 
@@ -80,6 +88,7 @@ def test_login_env_user(monkeypatch, tmpdir):
     monkeypatch.setattr('zign.api.get_config', lambda: {'user': ''})
     monkeypatch.setattr('os.getenv', lambda x: env_user)
     monkeypatch.setattr('pierone.cli.docker_login', mock_docker_login)
+    monkeypatch.setattr('requests.get', lambda x, timeout: response)
 
     with runner.isolated_filesystem():
         result = runner.invoke(cli, ['login'], catch_exceptions=False, input='pieroneurl\n')
