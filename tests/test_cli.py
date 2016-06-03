@@ -344,6 +344,7 @@ def test_no_cves_found(monkeypatch, tmpdir):
             "created_by": "myuser",
             "image": "sha256:here",
             "clair_id": "sha256:here",
+            "clair_details": "https://clair.example.org/foo",
             "severity_fix_available": "High",
             "severity_no_fix_available": "Medium"
         }
@@ -365,7 +366,7 @@ def test_no_cves_found(monkeypatch, tmpdir):
     ]
 
     runner = CliRunner()
-    monkeypatch.setattr('stups_cli.config.load_config', lambda x: {'url': 'foobar', 'clair_url': 'barfoo'})
+    monkeypatch.setattr('stups_cli.config.load_config', lambda x: {'url': 'foobar'})
     monkeypatch.setattr('zign.api.get_token', MagicMock(return_value='tok123'))
     monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
     monkeypatch.setattr('pierone.api.session.get', MagicMock(return_value=response))
