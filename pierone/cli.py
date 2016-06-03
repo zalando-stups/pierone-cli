@@ -258,18 +258,21 @@ def artifacts(config, team, url, output):
 @click.argument('artifact', nargs=-1)
 @url_option
 @output_option
-@click.option('--versions', type=int, default=3)
+@click.option('-l', '--limit', type=int, help='Limit number of versions to show per artifact')
 @click.pass_obj
-def tags(config, team: str, artifact, url, output, versions):
+def tags(config, team: str, artifact, url, output, limit):
     '''List all tags for a given team'''
     set_pierone_url(config, url)
     token = get_token()
 
+    if limit is None:
+        # show 20 rows if artifact was given, else show only 3
+        limit = 20 if artifact else 3
+
     if not artifact:
         artifact = get_artifacts(config.get('url'), team, token)
-        slice_from = - versions
-    else:
-        slice_from = 0
+
+    slice_from = - limit
 
     rows = []
     for art in artifact:

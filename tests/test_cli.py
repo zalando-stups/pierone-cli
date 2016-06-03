@@ -257,7 +257,7 @@ def test_tags_versions_limit(monkeypatch, tmpdir):
     monkeypatch.setattr('pierone.cli.get_artifacts', MagicMock(return_value=artifacts))
     monkeypatch.setattr('pierone.cli.get_tags', MagicMock(return_value=tags))
     with runner.isolated_filesystem():
-        result = runner.invoke(cli, ['tags', 'myteam', '--versions=1'], catch_exceptions=False)
+        result = runner.invoke(cli, ['tags', 'myteam', '--limit=1'], catch_exceptions=False)
         assert '1.0' not in result.output
         assert '1.1' not in result.output
         assert '2.0' in result.output
