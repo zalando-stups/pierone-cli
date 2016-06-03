@@ -258,14 +258,21 @@ def artifacts(config, team, url, output):
 @click.argument('artifact', nargs=-1)
 @url_option
 @output_option
+@click.option('-l', '--limit', type=int, help='Limit number of versions to show per artifact')
 @click.pass_obj
-def tags(config, team: str, artifact, url, output):
+def tags(config, team: str, artifact, url, output, limit):
     '''List all tags for a given team'''
     set_pierone_url(config, url)
     token = get_token()
 
+    if limit is None:
+        # show 20 rows if artifact was given, else show only 3
+        limit = 20 if artifact else 3
+
     if not artifact:
         artifact = get_artifacts(config.get('url'), team, token)
+
+    slice_from = - limit
 
     rows = []
     for art in artifact:
@@ -279,7 +286,7 @@ def tags(config, team: str, artifact, url, output):
                           row.get('severity_fix_available'), row.get('clair_id', False)),
                       'severity_no_fix_available': parse_severity(
                           row.get('severity_no_fix_available'), row.get('clair_id', False))}
-                     for row in r])
+                     for row in r[slice_from:]])
 
     # sorts are guaranteed to be stable, i.e. tags will be sorted by time (as returned from REST service)
     rows.sort(key=lambda row: (row['team'], row['artifact']))

@@ -230,6 +230,39 @@ def test_tags(monkeypatch, tmpdir):
         assert re.search('HIGH\s+MEDIUM', result.output), 'Should how information about CVEs'
 
 
+def test_tags_versions_limit(monkeypatch, tmpdir):
+    artifacts = ['app1', 'app2']
+    tags = [
+        {
+            'name': '1.0',
+            'created_by': 'myuser',
+            'created': '2015-08-01T08:14:59.432Z'
+        },
+        {
+            'name': '1.1',
+            'created_by': 'myuser',
+            'created': '2015-08-02T08:14:59.432Z'
+        },
+        {
+            'name': '2.0',
+            'created_by': 'myuser',
+            'created': '2016-06-20T08:14:59.432Z'
+        },
+    ]
+
+    runner = CliRunner()
+    monkeypatch.setattr('stups_cli.config.load_config', lambda x: {'url': 'foobar'})
+    monkeypatch.setattr('zign.api.get_token', MagicMock(return_value='tok123'))
+    monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
+    monkeypatch.setattr('pierone.cli.get_artifacts', MagicMock(return_value=artifacts))
+    monkeypatch.setattr('pierone.cli.get_tags', MagicMock(return_value=tags))
+    with runner.isolated_filesystem():
+        result = runner.invoke(cli, ['tags', 'myteam', '--limit=1'], catch_exceptions=False)
+        assert '1.0' not in result.output
+        assert '1.1' not in result.output
+        assert '2.0' in result.output
+
+
 def test_cves(monkeypatch, tmpdir):
     pierone_service_payload = [
         # Former pierone payload
