@@ -23,7 +23,6 @@ output_option = click.option('-o', '--output', type=click.Choice(['text', 'json'
                              help='Use alternative output format')
 
 url_option = click.option('--url', help='Pier One URL', metavar='URI')
-clair_url_option = click.option('--clair-url', help='Clair URL', metavar='CLAIR_URI')
 
 CVE_STYLES = {
     'TOO_OLD': {
@@ -136,28 +135,6 @@ def set_pierone_url(config: dict, url: str) -> None:
     return url
 
 
-def set_clair_url(config: dict, url: str) -> None:
-    '''Read Clair URL from cli, from config file or from stdin.'''
-    url = url or config.get('clair_url')
-
-    while not url:
-        url = click.prompt('Please enter the Clair URL', type=UrlType())
-
-        try:
-            requests.get(url, timeout=5)
-        except:
-            error('Could not reach {}'.format(url))
-            url = None
-
-    if '://' not in url:
-        # issue 63: gracefully handle URLs without scheme
-        url = 'https://{}'.format(url)
-
-    config['clair_url'] = url
-    stups_cli.config.store_config(config, 'pierone')
-    return url
-
-
 @click.group(cls=AliasedGroup, context_settings=CONTEXT_SETTINGS)
 @click.option('-V', '--version', is_flag=True, callback=print_version, expose_value=False, is_eager=True,
               help='Print the current version number and exit.')
@@ -223,11 +200,11 @@ def get_tags(url, team, art, access_token):
     return r.json()
 
 
-def get_clair_features(url, layer_id, access_token):
-    if layer_id is None:
+def get_clair_features(clair_details_url, access_token):
+    if not clair_details_url:
         return []
 
-    r = request(url, '/v1/layers/{}?vulnerabilities&features'.format(layer_id), access_token)
+    r = request(clair_details_url, '?vulnerabilities&features', access_token)
     if r.status_code == 404:
         # empty list of tags (layer does not exist)
         return []
@@ -307,19 +284,17 @@ def tags(config, team: str, artifact, url, output, limit):
 @click.argument('artifact')
 @click.argument('tag')
 @url_option
-@clair_url_option
 @output_option
 @click.pass_obj
-def cves(config, team, artifact, tag, url, clair_url, output):
+def cves(config, team, artifact, tag, url, output):
     '''List all CVE's found by Clair service for a specific artifact tag'''
     set_pierone_url(config, url)
-    set_clair_url(config, clair_url)
 
     rows = []
     token = get_token()
     for artifact_tag in get_tags(config.get('url'), team, artifact, token):
         if artifact_tag['name'] == tag:
-            installed_software = get_clair_features(config.get('clair_url'), artifact_tag.get('clair_id'), token)
+            installed_software = get_clair_features(artifact_tag.get('clair_details'), token)
             for software_pkg in installed_software:
                 for cve in software_pkg.get('Vulnerabilities', []):
                     rows.append({
