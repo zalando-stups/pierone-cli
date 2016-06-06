@@ -26,16 +26,10 @@ url_option = click.option('--url', help='Pier One URL', metavar='URI')
 
 CVE_STYLES = {
     'TOO_OLD': {
-        'bold': True,
-        'fg': 'red'
     },
     'NOT_PROCESSED_YET': {
-        'bold': True,
-        'fg': 'red'
     },
     'COULDNT_FIGURE_OUT': {
-        'bold': True,
-        'fg': 'red'
     },
     'CRITICAL': {
         'bold': True,
