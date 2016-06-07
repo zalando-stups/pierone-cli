@@ -8,7 +8,7 @@ import time
 
 import requests
 from clickclick import Action
-from zign.api import get_existing_token, get_named_token
+from zign.api import get_named_token
 
 adapter = requests.adapters.HTTPAdapter(pool_connections=10, pool_maxsize=10)
 session = requests.Session()
