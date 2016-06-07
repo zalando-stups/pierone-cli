@@ -1,11 +1,13 @@
 import json
 import os
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, ANY
 
 import pytest
 import yaml
 from pierone.api import (DockerImage, Unauthorized, docker_login,
                          get_latest_tag, image_exists)
+
+import requests.exceptions
 
 
 def test_docker_login(monkeypatch, tmpdir):
@@ -30,6 +32,38 @@ def test_docker_login_service_token(monkeypatch, tmpdir):
     with open(path) as fd:
         data = yaml.safe_load(fd)
         assert {'auth': 'b2F1dGgyOjEyMzc3', 'email': 'no-mail-required@example.org'} == data.get('auths').get('https://pierone.example.org')
+
+
+@pytest.mark.parametrize(
+    "status_code",
+    [
+        (400),
+        (404),
+        (500),
+        (502),
+        (700),  # nonsense status code that should be handled all the same
+    ])
+def test_docker_login_error(monkeypatch, status_code):
+    mock_get = MagicMock()
+    response = MagicMock()
+    response.status_code = status_code
+    mock_get.side_effect = requests.exceptions.HTTPError(response=response)
+    monkeypatch.setattr('tokens.get', mock_get)
+
+    mock_action = MagicMock()
+    mock_action.side_effect = SystemExit(1)
+    monkeypatch.setattr('pierone.api.Action.fatal_error', mock_action)
+    with pytest.raises(SystemExit):
+        docker_login('https://pierone.example.org', None, 'mytok', 'myuser', 'mypass', 'https://token.example.org')
+    mock_action.assert_called_once_with(ANY)
+    call = mock_action.call_args[0]
+    argument = call[0]  # type: str
+    assert argument.startswith("Authentication Failed")
+    assert str(status_code) in argument
+    if 400 <= status_code < 500:
+        assert "Client Error" in argument
+    if 500 <= status_code < 600:
+        assert "Server Error" in argument
 
 
 def test_keep_dockercfg_entries(monkeypatch, tmpdir):
