@@ -3,6 +3,7 @@ import os
 from unittest.mock import MagicMock, ANY
 
 import yaml
+import pytest
 from pierone.api import (DockerImage, docker_login, get_image_tag,
                          get_image_tags, get_latest_tag, image_exists)
 
@@ -20,7 +21,8 @@ def test_docker_login(monkeypatch, tmpdir):
     path = os.path.expanduser('~/.docker/config.json')
     with open(path) as fd:
         data = yaml.safe_load(fd)
-        assert {'auth': 'b2F1dGgyOjEyMzc3', 'email': 'no-mail-required@example.org'} == data.get('auths').get('https://pierone.example.org')
+        assert {'auth': 'b2F1dGgyOjEyMzc3',
+                'email': 'no-mail-required@example.org'} == data.get('auths').get('https://pierone.example.org')
 
 
 def test_docker_login_service_token(monkeypatch, tmpdir):
@@ -30,7 +32,8 @@ def test_docker_login_service_token(monkeypatch, tmpdir):
     path = os.path.expanduser('~/.docker/config.json')
     with open(path) as fd:
         data = yaml.safe_load(fd)
-        assert {'auth': 'b2F1dGgyOjEyMzc3', 'email': 'no-mail-required@example.org'} == data.get('auths').get('https://pierone.example.org')
+        assert {'auth': 'b2F1dGgyOjEyMzc3',
+                'email': 'no-mail-required@example.org'} == data.get('auths').get('https://pierone.example.org')
 
 
 @pytest.mark.parametrize(
@@ -88,7 +91,8 @@ def test_keep_dockercfg_entries(monkeypatch, tmpdir):
                  'myuser', 'mypass', 'https://token.example.org', use_keyring=False)
     with open(path) as fd:
         data = yaml.safe_load(fd)
-        assert {'auth': 'b2F1dGgyOjEyMzc3', 'email': 'no-mail-required@example.org'} == data.get('auths', {}).get('https://pierone.example.org')
+        assert {'auth': 'b2F1dGgyOjEyMzc3',
+                'email': 'no-mail-required@example.org'} == data.get('auths', {}).get('https://pierone.example.org')
         assert existing_data.get(key) == data.get(key)
 
 
