@@ -40,6 +40,8 @@ def test_docker_login_service_token(monkeypatch, tmpdir):
         (400),
         (404),
         (500),
+        (502),
+        (700),  # nonsense status code that should be handled all the same
     ])
 def test_docker_login_error(monkeypatch, status_code):
     mock_get = MagicMock()
@@ -54,6 +56,15 @@ def test_docker_login_error(monkeypatch, status_code):
     with pytest.raises(SystemExit):
         docker_login('https://pierone.example.org', None, 'mytok', 'myuser', 'mypass', 'https://token.example.org')
     mock_action.assert_called_once_with(ANY)
+    call = mock_action.call_args[0]
+    argument = call[0]  # type: str
+    assert argument.startswith("Authentication Failed")
+    assert str(status_code) in argument
+    if 400 <= status_code < 500:
+        assert "Client Error" in argument
+    if 500 <= status_code < 600:
+        assert "Server Error" in argument
+
 
 def test_keep_dockercfg_entries(monkeypatch, tmpdir):
     monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))

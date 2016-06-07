@@ -57,8 +57,11 @@ def docker_login(url, realm, name, user, password, token_url=None, use_keyring=T
                                     use_keyring=use_keyring, prompt=prompt)
         except requests.HTTPError as error:
             status_code = error.response.status_code
-            if status_code == 400:
-                action.fatal_error('Authentication Failed (400). Check your configuration.')
+            if 400 <= status_code < 500:
+                action.fatal_error(
+                    'Authentication Failed ({} Client Error). Check your configuration.'.format(status_code))
+            if 500 <= status_code < 600:
+                action.fatal_error('Authentication Failed ({} Server Error).'.format(status_code))
             else:
                 action.fatal_error('Authentication Failed ({})'.format(status_code))
     access_token = token.get('access_token')
