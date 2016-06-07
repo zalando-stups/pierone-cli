@@ -52,7 +52,7 @@ def test_login_arg_user(monkeypatch, tmpdir):
     monkeypatch.setattr('requests.get', lambda x, timeout: response)
 
     with runner.isolated_filesystem():
-        result = runner.invoke(cli, ['login', '-U', arg_user], catch_exceptions=False, input='pieroneurl\n')
+        runner.invoke(cli, ['login', '-U', arg_user], catch_exceptions=False, input='pieroneurl\n')
 
 
 def test_login_zign_user(monkeypatch, tmpdir):
@@ -72,7 +72,7 @@ def test_login_zign_user(monkeypatch, tmpdir):
     monkeypatch.setattr('requests.get', lambda x, timeout: response)
 
     with runner.isolated_filesystem():
-        result = runner.invoke(cli, ['login'], catch_exceptions=False, input='pieroneurl\n')
+        runner.invoke(cli, ['login'], catch_exceptions=False, input='pieroneurl\n')
 
 
 def test_login_env_user(monkeypatch, tmpdir):
@@ -91,7 +91,7 @@ def test_login_env_user(monkeypatch, tmpdir):
     monkeypatch.setattr('requests.get', lambda x, timeout: response)
 
     with runner.isolated_filesystem():
-        result = runner.invoke(cli, ['login'], catch_exceptions=False, input='pieroneurl\n')
+        runner.invoke(cli, ['login'], catch_exceptions=False, input='pieroneurl\n')
 
 
 def test_login_given_url_option(monkeypatch, tmpdir):
@@ -238,17 +238,29 @@ def test_tags_versions_limit(monkeypatch, tmpdir):
     artifacts = ['app1', 'app2']
     tags = [
         {
-            'name': '1.0',
+            'tag': '1.0',
+            'team': 'foo',
+            'artifact': 'app1',
+            'severity_fix_available': 'TOO_OLD',
+            'severity_no_fix_available': 'TOO_OLD',
             'created_by': 'myuser',
             'created': '2015-08-01T08:14:59.432Z'
         },
         {
-            'name': '1.1',
+            'tag': '1.1',
+            'team': 'foo',
+            'artifact': 'app1',
+            'severity_fix_available': 'NO_CVES_FOUND',
+            'severity_no_fix_available': 'NO_CVES_FOUND',
             'created_by': 'myuser',
             'created': '2015-08-02T08:14:59.432Z'
         },
         {
-            'name': '2.0',
+            'tag': '2.0',
+            'team': 'foo',
+            'artifact': 'app1',
+            'severity_fix_available': 'NO_CVES_FOUND',
+            'severity_no_fix_available': 'NO_CVES_FOUND',
             'created_by': 'myuser',
             'created': '2016-06-20T08:14:59.432Z'
         },
@@ -259,7 +271,7 @@ def test_tags_versions_limit(monkeypatch, tmpdir):
     monkeypatch.setattr('zign.api.get_token', MagicMock(return_value='tok123'))
     monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
     monkeypatch.setattr('pierone.cli.get_artifacts', MagicMock(return_value=artifacts))
-    monkeypatch.setattr('pierone.cli.get_tags', MagicMock(return_value=tags))
+    monkeypatch.setattr('pierone.cli.get_image_tags', MagicMock(return_value=tags))
     with runner.isolated_filesystem():
         result = runner.invoke(cli, ['tags', 'myteam', '--limit=1'], catch_exceptions=False)
         assert '1.0' not in result.output
@@ -385,7 +397,6 @@ def test_latest(monkeypatch, tmpdir):
     runner = CliRunner()
     monkeypatch.setattr('stups_cli.config.load_config', lambda x: {'url': 'https://pierone.example.org'})
     monkeypatch.setattr('zign.api.get_token', MagicMock(return_value='tok123'))
-    monkeypatch.setattr('pierone.api.get_existing_token', MagicMock(return_value={'access_token': 'tok123'}))
     monkeypatch.setattr('pierone.api.session.get', MagicMock(return_value=response))
     with runner.isolated_filesystem():
         result = runner.invoke(cli, ['latest', 'myteam', 'myart'], catch_exceptions=False)
@@ -398,7 +409,6 @@ def test_latest_not_found(monkeypatch, tmpdir):
     runner = CliRunner()
     monkeypatch.setattr('stups_cli.config.load_config', lambda x: {'url': 'https://pierone.example.org'})
     monkeypatch.setattr('zign.api.get_token', MagicMock(return_value='tok123'))
-    monkeypatch.setattr('pierone.api.get_existing_token', MagicMock(return_value={'access_token': 'tok123'}))
     monkeypatch.setattr('pierone.api.session.get', MagicMock(return_value=response))
     with runner.isolated_filesystem():
         result = runner.invoke(cli, ['latest', 'myteam', 'myart'], catch_exceptions=False)
