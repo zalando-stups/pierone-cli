@@ -2,11 +2,9 @@ import json
 import os
 from unittest.mock import MagicMock, ANY
 
-import pytest
 import yaml
-from pierone.api import (DockerImage, Unauthorized, docker_login,
-                         get_image_tag, get_image_tags, get_latest_tag,
-                         image_exists)
+from pierone.api import (DockerImage, docker_login, get_image_tag,
+                         get_image_tags, get_latest_tag, image_exists)
 
 import requests.exceptions
 
@@ -116,10 +114,8 @@ def test_get_latest_tag(monkeypatch):
                                    'created_by': 'foobar',
                                    'name': '0.21'}]
     monkeypatch.setattr('pierone.api.session.get', MagicMock(return_value=response))
-    monkeypatch.setattr('pierone.api.get_existing_token', MagicMock(return_value={'access_token': 'tok123'}))
-    token_name = 'dummy'
     image = DockerImage(registry='registry', team='foo', artifact='bar', tag='latest')
-    data = get_latest_tag(token_name, image)
+    data = get_latest_tag(image)
 
     assert data == '0.22'
 
@@ -146,10 +142,8 @@ def test_get_latest_tag_IOException(monkeypatch):
                                    'created_by': 'foobar',
                                    'name': '0.21'}]
     monkeypatch.setattr('pierone.api.session.get', MagicMock(side_effect=Exception(IOError), return_value=response))
-    monkeypatch.setattr('pierone.api.get_existing_token', MagicMock(return_value={'access_token': 'tok123'}))
-    token_name = 'dummy'
     image = DockerImage(registry='registry', team='foo', artifact='bar', tag='latest')
-    data = get_latest_tag(token_name, image)
+    data = get_latest_tag(image)
 
     assert data is None
 
@@ -159,10 +153,8 @@ def test_get_latest_tag_non_json(monkeypatch):
     response.status_code = 200
     response.json.return_value = None
     monkeypatch.setattr('pierone.api.session.get', MagicMock(return_value=response))
-    monkeypatch.setattr('pierone.api.get_existing_token', MagicMock(return_value={'access_token': 'tok123'}))
-    token_name = 'dummy'
     image = DockerImage(registry='registry', team='foo', artifact='bar', tag='latest')
-    data = get_latest_tag(token_name, image)
+    data = get_latest_tag(image)
 
     assert data is None
 
@@ -173,10 +165,8 @@ def test_image_exists(monkeypatch):
     response.json.return_value = {'0.1': 'chksum',
                                   '0.2': 'chksum'}
     monkeypatch.setattr('pierone.api.session.get', MagicMock(return_value=response))
-    monkeypatch.setattr('pierone.api.get_existing_token', MagicMock(return_value={'access_token': 'tok123'}))
-    token_name = 'dummy'
     image = DockerImage(registry='registry', team='foo', artifact='bar', tag='0.2')
-    data = image_exists(token_name, image)
+    data = image_exists(image)
 
     assert data is True
 
@@ -187,10 +177,8 @@ def test_image_exists_IOException(monkeypatch):
     response.json.return_value = {'0.1': 'chksum',
                                   '0.2': 'chksum'}
     monkeypatch.setattr('pierone.api.session.get', MagicMock(side_effect=Exception(IOError), return_value=response))
-    monkeypatch.setattr('pierone.api.get_existing_token', MagicMock(return_value={'access_token': 'tok123'}))
-    token_name = 'dummy'
     image = DockerImage(registry='registry', team='foo', artifact='bar', tag='0.2')
-    data = image_exists(token_name, image)
+    data = image_exists(image)
 
     assert data is False
 
@@ -201,10 +189,8 @@ def test_image_exists_but_other_version(monkeypatch):
     response.json.return_value = {'0.1': 'chksum',
                                   '0.2': 'chksum'}
     monkeypatch.setattr('pierone.api.session.get', MagicMock(return_value=response))
-    monkeypatch.setattr('pierone.api.get_existing_token', MagicMock(return_value={'access_token': 'tok123'}))
-    token_name = 'dummy'
     image = DockerImage(registry='registry', team='foo', artifact='bar', tag='latest')
-    data = image_exists(token_name, image)
+    data = image_exists(image)
 
     assert data is False
 
@@ -214,10 +200,8 @@ def test_image_not_exists(monkeypatch):
     response.status_code = 404
     response.json.return_value = {}
     monkeypatch.setattr('pierone.api.session.get', MagicMock(return_value=response))
-    monkeypatch.setattr('pierone.api.get_existing_token', MagicMock(return_value={'access_token': 'tok123'}))
-    token_name = 'dummy'
     image = DockerImage(registry='registry', team='foo', artifact='bar', tag='latest')
-    data = image_exists(token_name, image)
+    data = image_exists(image, 'tok123')
 
     assert data is False
 
@@ -229,11 +213,9 @@ def test_get_image_tags(monkeypatch):
                                    'created_by': 'foobar',
                                    'name': '0.17'}]
     monkeypatch.setattr('pierone.api.session.get', MagicMock(return_value=response))
-    monkeypatch.setattr('pierone.api.get_existing_token', MagicMock(return_value={'access_token': 'tok123'}))
-    token_name = 'dummy'
     image = DockerImage(registry='registry', team='foo', artifact='bar', tag=None)
 
-    image_tags = get_image_tags(token_name, image)
+    image_tags = get_image_tags(image)
     tag = image_tags[0]
 
     assert tag['team'] == 'foo'
@@ -254,11 +236,9 @@ def test_get_image_tag(monkeypatch):
                                    'created_by': 'foobar',
                                    'name': '0.22'}]
     monkeypatch.setattr('pierone.api.session.get', MagicMock(return_value=response))
-    monkeypatch.setattr('pierone.api.get_existing_token', MagicMock(return_value={'access_token': 'tok123'}))
-    token_name = 'dummy'
     image = DockerImage(registry='registry', team='foo', artifact='bar', tag='0.22')
 
-    tag = get_image_tag(token_name, image)
+    tag = get_image_tag(image)
 
     assert tag['team'] == 'foo'
     assert tag['artifact'] == 'bar'
@@ -275,8 +255,6 @@ def test_get_image_tag_that_does_not_exist(monkeypatch):
                                    'created_by': 'foobar',
                                    'name': '0.17'}]
     monkeypatch.setattr('pierone.api.session.get', MagicMock(return_value=response))
-    monkeypatch.setattr('pierone.api.get_existing_token', MagicMock(return_value={'access_token': 'tok123'}))
-    token_name = 'dummy'
     image = DockerImage(registry='registry', team='foo', artifact='bar', tag='1.22')
 
-    assert get_image_tag(token_name, image) is None
+    assert get_image_tag(image) is None

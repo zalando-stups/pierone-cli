@@ -211,7 +211,8 @@ def tags(config, team: str, artifact, url, output, limit):
     if not artifact:
         artifact = get_artifacts(config.get('url'), team, token)
         if not artifact:
-            raise click.UsageError('Either Team does not exist or currently does not artifacts in Pierone! '
+            raise click.UsageError('The Team you are looking for does not exist or '
+                                   'we could not find any artifacts registered in Pierone! '
                                    'Please double check for spelling mistakes.')
 
     registry = config.get('url')
@@ -224,14 +225,14 @@ def tags(config, team: str, artifact, url, output, limit):
     for art in artifact:
         image = DockerImage(registry=registry, team=team, artifact=art, tag=None)
         try:
-            tags = get_image_tags('pierone', image)[slice_from:]
+            tags = get_image_tags(image, token)
         except Unauthorized as e:
             raise click.ClickException(str(e))
         else:
             if tags is None:
                 raise click.UsageError('Artifact or Team does not exist! '
                                        'Please double check for spelling mistakes.')
-            rows.extend(tags)
+            rows.extend(tags[slice_from:])
 
     # sorts are guaranteed to be stable, i.e. tags will be sorted by time (as returned from REST service)
     rows.sort(key=lambda row: (row['team'], row['artifact']))
@@ -306,7 +307,7 @@ def latest(config, team, artifact, url, output):
         registry = registry[8:]
     image = DockerImage(registry=registry, team=team, artifact=artifact, tag=None)
 
-    latest_tag = get_latest_tag(token, image)
+    latest_tag = get_latest_tag(image, token)
     if latest_tag:
         print(latest_tag)
     else:
