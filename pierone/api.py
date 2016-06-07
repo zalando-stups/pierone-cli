@@ -50,10 +50,17 @@ class DockerImage(collections.namedtuple('DockerImage', 'registry team artifact 
 
 
 def docker_login(url, realm, name, user, password, token_url=None, use_keyring=True, prompt=False):
-    with Action('Getting OAuth2 token "{}"..'.format(name)):
-        token = get_named_token(['uid', 'application.write'],
-                                realm, name, user, password, url=token_url,
-                                use_keyring=use_keyring, prompt=prompt)
+    with Action('Getting OAuth2 token "{}"..'.format(name)) as action:
+        try:
+            token = get_named_token(['uid', 'application.write'],
+                                    realm, name, user, password, url=token_url,
+                                    use_keyring=use_keyring, prompt=prompt)
+        except requests.HTTPError as error:
+            status_code = error.response.status_code
+            if status_code == 400:
+                action.fatal_error('Authentication Failed (400). Check your configuration.')
+            else:
+                action.fatal_error('Authentication Failed ({})'.format(status_code))
     access_token = token.get('access_token')
     docker_login_with_token(url, access_token)
 
