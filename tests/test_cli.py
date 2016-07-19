@@ -3,8 +3,19 @@ import os
 import re
 from unittest.mock import MagicMock
 
+import pytest
 from click.testing import CliRunner
 from pierone.cli import cli
+from requests import RequestException
+
+
+@pytest.fixture(autouse=True)
+def valid_pierone_url(monkeypatch):
+    response = MagicMock()
+    response.headers = {
+        'WWW-Authenticate': 'Basic realm="Pier One Docker Registry"'
+    }
+    monkeypatch.setattr('requests.get', lambda *args, **kw: response)
 
 
 def test_version(monkeypatch):
@@ -16,22 +27,46 @@ def test_version(monkeypatch):
 
 
 def test_login(monkeypatch, tmpdir):
-    response = MagicMock()
-
     runner = CliRunner()
 
     monkeypatch.setattr('stups_cli.config.load_config', lambda x: {})
     monkeypatch.setattr('pierone.api.get_named_token', MagicMock(return_value={'access_token': 'tok123'}))
     monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
-    monkeypatch.setattr('requests.get', lambda x, timeout: response)
 
     with runner.isolated_filesystem():
         result = runner.invoke(cli, ['login'], catch_exceptions=False, input='pieroneurl\n')
+        assert 'Storing Docker client configuration' in result.output
+        assert result.output.rstrip().endswith('OK')
         with open(os.path.join(str(tmpdir), '.docker/config.json')) as fd:
             data = json.load(fd)
         assert data['auths']['https://pieroneurl']['auth'] == 'b2F1dGgyOnRvazEyMw=='
-        assert 'Storing Docker client configuration' in result.output
-        assert result.output.rstrip().endswith('OK')
+
+
+def test_invalid_url_for_login(monkeypatch, tmpdir):
+    runner = CliRunner()
+    response = MagicMock()
+
+    monkeypatch.setattr('stups_cli.config.load_config', lambda x: {})
+    monkeypatch.setattr('pierone.api.get_named_token', MagicMock(return_value={'access_token': 'tok123'}))
+    monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
+
+    # Missing Pier One header
+    response.headers = {}
+    monkeypatch.setattr('requests.get', lambda *args, **kw: response)
+
+    with runner.isolated_filesystem():
+        result = runner.invoke(cli, ['login'], catch_exceptions=False, input='pieroneurl\n')
+        assert 'Did not find a valid Pier One registry at https://pieroneurl' in result.output
+        assert result.exit_code == 1
+        assert not os.path.exists(os.path.join(str(tmpdir), '.docker/config.json'))
+
+    # Not a valid header
+    response.headers = {'WWW-Authenticate': 'Something Else'}
+    with runner.isolated_filesystem():
+        result = runner.invoke(cli, ['login'], catch_exceptions=False, input='pieroneurl\n')
+        assert 'Did not find a valid Pier One registry at https://pieroneurl' in result.output
+        assert result.exit_code == 1
+        assert not os.path.exists(os.path.join(str(tmpdir), '.docker/config.json'))
 
 
 def test_login_arg_user(monkeypatch, tmpdir):
@@ -95,8 +130,6 @@ def test_login_env_user(monkeypatch, tmpdir):
 
 
 def test_login_given_url_option(monkeypatch, tmpdir):
-    response = MagicMock()
-
     runner = CliRunner()
 
     config = {}
@@ -108,7 +141,6 @@ def test_login_given_url_option(monkeypatch, tmpdir):
     monkeypatch.setattr('stups_cli.config.store_config', store)
     monkeypatch.setattr('pierone.api.get_named_token', MagicMock(return_value={'access_token': 'tok123'}))
     monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
-    monkeypatch.setattr('requests.get', lambda x, timeout: response)
 
     with runner.isolated_filesystem():
         runner.invoke(cli, ['login'], catch_exceptions=False, input='pieroneurl\n')

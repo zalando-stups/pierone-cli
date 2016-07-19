@@ -8,7 +8,9 @@ import pierone
 import requests
 import stups_cli.config
 import zign.api
-from clickclick import AliasedGroup, OutputFormat, UrlType, error, print_table
+from clickclick import (AliasedGroup, OutputFormat, UrlType, error,
+                        fatal_error, print_table)
+from requests import RequestException
 
 from .api import (DockerImage, Unauthorized, docker_login, get_image_tags,
                   get_latest_tag, parse_time, request)
@@ -76,6 +78,16 @@ def print_version(ctx, param, value):
     ctx.exit()
 
 
+def validate_pierone_url(url: str) -> None:
+    ping_url = url.rstrip('/') + '/v2'
+    try:
+        response = requests.get(ping_url, timeout=5)
+        if 'Pier One' not in response.headers.get('WWW-Authenticate', ''):
+            fatal_error('ERROR: Did not find a valid Pier One registry at {}'.format(url))
+    except RequestException:
+        fatal_error('ERROR: Could not reach {}'.format(ping_url))
+
+
 def set_pierone_url(config: dict, url: str) -> None:
     '''Read Pier One URL from cli, from config file or from stdin.'''
     url = url or config.get('url')
@@ -93,6 +105,7 @@ def set_pierone_url(config: dict, url: str) -> None:
         # issue 63: gracefully handle URLs without scheme
         url = 'https://{}'.format(url)
 
+    validate_pierone_url(url)
     config['url'] = url
     return url
 
