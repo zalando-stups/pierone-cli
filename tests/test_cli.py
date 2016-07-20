@@ -6,7 +6,6 @@ from unittest.mock import MagicMock
 import pytest
 from click.testing import CliRunner
 from pierone.cli import cli
-from requests import RequestException
 
 
 @pytest.fixture(autouse=True)
