@@ -229,7 +229,7 @@ def tags(config, team: str, artifact, url, output, limit):
         except Unauthorized as e:
             raise click.ClickException(str(e))
         else:
-            if tags is None:
+            if not tags:
                 raise click.UsageError('Artifact or Team does not exist! '
                                        'Please double check for spelling mistakes.')
             rows.extend(tags[slice_from:])
@@ -327,6 +327,9 @@ def scm_source(config, team, artifact, tag, url, output):
     token = get_token()
 
     tags = get_tags(config.get('url'), team, artifact, token)
+    if not tags:
+        raise click.UsageError('Artifact or Team does not exist! '
+                               'Please double check for spelling mistakes.')
 
     if not tag:
         tag = [t['name'] for t in tags]

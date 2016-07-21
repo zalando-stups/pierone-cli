@@ -128,13 +128,20 @@ def test_scm_source(monkeypatch, tmpdir):
     runner = CliRunner()
     monkeypatch.setattr('stups_cli.config.load_config', lambda x: {'url': 'foobar'})
     monkeypatch.setattr('zign.api.get_token', MagicMock(return_value='tok123'))
-    monkeypatch.setattr('pierone.cli.get_tags', MagicMock(return_value={}))
+    monkeypatch.setattr('pierone.cli.get_tags', MagicMock(return_value=[{'name': 'myart'}]))
     monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
     monkeypatch.setattr('pierone.api.session.get', MagicMock(return_value=response))
     with runner.isolated_filesystem():
         result = runner.invoke(cli, ['scm-source', 'myteam', 'myart', '1.0'], catch_exceptions=False)
         assert 'myrev123' in result.output
         assert 'git:somerepo' in result.output
+
+    # no tags found
+    monkeypatch.setattr('pierone.cli.get_tags', MagicMock(return_value=[]))
+    with runner.isolated_filesystem():
+        result = runner.invoke(cli, ['scm-source', 'myteam', 'myart', '1.0'], catch_exceptions=False)
+        assert 'Artifact or Team does not exist!' in result.output
+        assert result.exit_code > 0
 
 
 def test_image(monkeypatch, tmpdir):
