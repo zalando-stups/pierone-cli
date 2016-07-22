@@ -6,14 +6,13 @@ from unittest.mock import MagicMock
 import pytest
 from click.testing import CliRunner
 from pierone.cli import cli
+from requests import RequestException
 
 
 @pytest.fixture(autouse=True)
 def valid_pierone_url(monkeypatch):
     response = MagicMock()
-    response.headers = {
-        'WWW-Authenticate': 'Basic realm="Pier One Docker Registry"'
-    }
+    response.text = 'Pier One API'
     monkeypatch.setattr('requests.get', lambda *args, **kw: response)
 
 
@@ -50,20 +49,21 @@ def test_invalid_url_for_login(monkeypatch, tmpdir):
     monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
 
     # Missing Pier One header
-    response.headers = {}
+    response.text = 'Not valid API'
     monkeypatch.setattr('requests.get', lambda *args, **kw: response)
 
     with runner.isolated_filesystem():
         result = runner.invoke(cli, ['login'], catch_exceptions=False, input='pieroneurl\n')
-        assert 'Did not find a valid Pier One registry at https://pieroneurl' in result.output
+        assert 'ERROR: Did not find a valid Pier One registry at https://pieroneurl' in result.output
         assert result.exit_code == 1
         assert not os.path.exists(os.path.join(str(tmpdir), '.docker/config.json'))
 
     # Not a valid header
-    response.headers = {'WWW-Authenticate': 'Something Else'}
+    response.raise_for_status = MagicMock(side_effect=RequestException)
+    monkeypatch.setattr('requests.get', lambda *args, **kw: response)
     with runner.isolated_filesystem():
         result = runner.invoke(cli, ['login'], catch_exceptions=False, input='pieroneurl\n')
-        assert 'Did not find a valid Pier One registry at https://pieroneurl' in result.output
+        assert 'ERROR: Could not reach https://pieroneurl' in result.output
         assert result.exit_code == 1
         assert not os.path.exists(os.path.join(str(tmpdir), '.docker/config.json'))
 

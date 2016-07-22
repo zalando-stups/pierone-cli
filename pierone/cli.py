@@ -79,10 +79,11 @@ def print_version(ctx, param, value):
 
 
 def validate_pierone_url(url: str) -> None:
-    ping_url = url.rstrip('/') + '/v2'
+    ping_url = url.rstrip('/') + '/swagger.json'
     try:
         response = requests.get(ping_url, timeout=5)
-        if 'Pier One' not in response.headers.get('WWW-Authenticate', ''):
+        response.raise_for_status()
+        if 'Pier One API' not in response.text:
             fatal_error('ERROR: Did not find a valid Pier One registry at {}'.format(url))
     except RequestException:
         fatal_error('ERROR: Could not reach {}'.format(ping_url))
