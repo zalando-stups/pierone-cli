@@ -91,11 +91,11 @@ def docker_login_with_token(url, access_token):
             json.dump(dockercfg, fd)
 
 
-def request(url, path, access_token: str=None) -> requests.Response:
+def request(url, path, access_token: str=None, **kwargs) -> requests.Response:
     headers = {}
     if access_token:
         headers = {'Authorization': 'Bearer {}'.format(access_token)}
-    return session.get('{}{}'.format(url, path), headers=headers, timeout=10)
+    return session.get('{}{}'.format(url, path), headers=headers, timeout=10, **kwargs)
 
 
 def image_exists(image: DockerImage, token: str=None) -> bool:
