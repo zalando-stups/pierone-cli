@@ -1,10 +1,5 @@
-import io
 import os
 import re
-import struct
-import tarfile
-import tempfile
-import zlib
 
 import click
 import pierone
@@ -17,6 +12,7 @@ from requests import RequestException
 
 from .api import (DockerImage, Unauthorized, docker_login, get_image_tags,
                   get_latest_tag, parse_time, request)
+from .inspect import inspect_files, get_config
 from .exceptions import PieroneException
 
 KEYRING_KEY = 'pierone'
@@ -397,67 +393,6 @@ def image(config, image, url, output):
                     titles={'name': 'Tag', 'artifact': 'Artifact', 'team': 'Team'})
 
 
-FTEXT, FHCRC, FEXTRA, FNAME, FCOMMENT = 1, 2, 4, 8, 16
-
-
-def _read_gzip_header(fp):
-    magic = fp.read(2)
-    if magic == b'':
-        return False
-
-    if magic != b'\037\213':
-        raise OSError('Not a gzipped file (%r)' % magic)
-
-    (method, flag,
-        _last_mtime) = struct.unpack("<BBIxx", fp.read(8))
-    if method != 8:
-        raise OSError('Unknown compression method')
-
-    if flag & FEXTRA:
-        # Read & discard the extra field, if present
-        extra_len, = struct.unpack("<H", fp.read(2))
-        fp.read(extra_len)
-    if flag & FNAME:
-        # Read and discard a null-terminated string containing the filename
-        while True:
-            s = fp.read(1)
-            if not s or s == b'\000':
-                break
-    if flag & FCOMMENT:
-        # Read and discard a null-terminated string containing a comment
-        while True:
-            s = fp.read(1)
-            if not s or s == b'\000':
-                break
-    if flag & FHCRC:
-        fp.read(2)     # Read & discard the 16-bit header CRC
-    return True
-
-
-class Gzip():
-    def __init__(self, fd):
-        _read_gzip_header(fd)
-        self._decompressor = zlib.decompressobj(-zlib.MAX_WBITS)
-        self._fp = fd
-        self._pos = 0
-        self._unconsumed = b''
-
-    def read(self, size):
-        buf = self._unconsumed + self._fp.read(io.DEFAULT_BUFFER_SIZE)
-        self._unconsumed = b''
-        uncompress = self._decompressor.decompress(buf, size)
-        self._unconsumed = self._decompressor.unconsumed_tail
-        self._pos += len(uncompress)
-        return uncompress
-
-    def tell(self):
-        return self._pos
-
-    def seek(self, offset):
-        return offset
-        pass
-
-
 @cli.command('inspect-contents')
 @click.argument('team', callback=validate_team)
 @click.argument('artifact')
@@ -477,58 +412,47 @@ def inspect_contents(config, team, artifact, tag, url, output, limit, regex):
     if not tag:
         tag = [t['name'] for t in tags]
 
-    CHUNK_SIZE = 8192*2
-    TYPES = {b'5': 'D', b'0': ' '}
-
     pattern = regex and re.compile(regex)
 
     rows = []
-    seen_members = set()
     for t in tag:
-        row = request(config.get('url'), '/v2/{}/{}/manifests/{}'.format(team, artifact, t),
-                      token).json()
-        if row.get('layers'):
-            layers = reversed([lay.get('digest') for lay in row.get('layers')])
-        else:
-            layers = [lay.get('blobSum') for lay in row.get('fsLayers')]
-        if layers:
-            found = 0
-            for i, layer in enumerate(layers):
-                layer_id = layer
-                if layer_id:
-                    response = request(config.get('url'), '/v2/{}/{}/blobs/{}'.format(team, artifact, layer_id), token,
-                                       stream=True)
-                    with tempfile.NamedTemporaryFile(prefix='tmp-layer-', suffix='.tar') as fd:
-                        for chunk in response.iter_content(CHUNK_SIZE):
-                            fd.seek(0, 2)
-                            fd.write(chunk)
-                            fd.flush()
-                            fd.seek(0)
-                            with tarfile.TarFile(fileobj=Gzip(fd), mode='r') as archive:
-                                for member in archive.getmembers():
-                                    key = (layer_id, member.name, member.type)
-                                    # only consider regular files
-                                    if key not in seen_members and member.type == b'0':
-                                        rows.append({'layer_index': i, 'layer_id': layer_id,
-                                                     'type': TYPES.get(member.type),
-                                                     'mode': oct(member.mode)[-4:],
-                                                     'name': member.name, 'size': member.size,
-                                                     'created_time': member.mtime})
-                                        seen_members.add(key)
-                                        if not pattern or pattern.match(member.name):
-                                            found += 1
-                                            if found >= limit:
-                                                break
-                            if found >= limit:
-                                break
-                if found >= limit:
-                    break
+        def callback(i, layer_id, member):
+            if member.type == b'0' and (not pattern or pattern.match(member.name)):
+                rows.append({'layer_index': i, 'layer_id': layer_id,
+                             'mode': oct(member.mode)[-4:],
+                             'name': member.name, 'size': member.size,
+                             'created_time': member.mtime})
+                if len(rows) >= limit:
+                    return True
+
+        inspect_files(config.get('url'), team, artifact, t, token, callback)
 
     rows.sort(key=lambda row: (row['layer_index'], row['name']))
     with OutputFormat(output):
         print_table(['layer_index', 'layer_id', 'mode', 'name', 'size', 'created_time'], rows,
                     titles={'created_time': 'Created', 'layer_index': 'Idx'},
                     max_column_widths={'layer_id': 16})
+
+
+@cli.command('show-config')
+@click.argument('team', callback=validate_team)
+@click.argument('artifact')
+@click.argument('tag', nargs=-1)
+@url_option
+@output_option
+@click.pass_obj
+def show_config(config, team, artifact, tag, url, output):
+    '''Show image configuration JSON'''
+    set_pierone_url(config, url)
+    token = get_token()
+
+    tags = get_tags(config.get('url'), team, artifact, token)
+
+    if not tag:
+        tag = [t['name'] for t in tags]
+
+    for t in tag:
+        print(get_config(config.get('url'), team, artifact, t, token))
 
 
 def main():
