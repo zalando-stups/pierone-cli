@@ -53,6 +53,7 @@ class DockerImage(collections.namedtuple('DockerImage', 'registry team artifact 
 
 
 def docker_login(url, realm, name, user, password, token_url=None, use_keyring=True, prompt=False):
+    token = None  # Make linters happy
     with Action('Getting OAuth2 token "{}"..'.format(name)) as action:
         try:
             token = get_named_token(['uid', 'application.write'],
@@ -67,7 +68,6 @@ def docker_login(url, realm, name, user, password, token_url=None, use_keyring=T
                 action.fatal_error('Authentication Failed ({} Server Error).'.format(status_code))
             else:
                 action.fatal_error('Authentication Failed ({})'.format(status_code))
-            token = None # Make linters happy
     access_token = token.get('access_token')
     docker_login_with_token(url, access_token)
 
@@ -92,7 +92,7 @@ def docker_login_with_token(url, access_token):
             json.dump(dockercfg, fd)
 
 
-def request(url, path, access_token: str=None, not_found_is_none: bool=False) -> requests.Response:
+def request(url, path, access_token: str = None, not_found_is_none: bool = False) -> requests.Response:
     if access_token:
         headers = {'Authorization': 'Bearer {}'.format(access_token)}
     else:
@@ -105,7 +105,7 @@ def request(url, path, access_token: str=None, not_found_is_none: bool=False) ->
         return r
 
 
-def image_exists(image: DockerImage, token: str=None) -> bool:
+def image_exists(image: DockerImage, token: str = None) -> bool:
     url = 'https://{}'.format(image.registry)
     path = '/v1/repositories/{team}/{artifact}/tags'.format(team=image.team, artifact=image.artifact)
 
@@ -116,7 +116,7 @@ def image_exists(image: DockerImage, token: str=None) -> bool:
     return image.tag in result
 
 
-def get_image_tag(image: DockerImage, token: str=None) -> dict:
+def get_image_tag(image: DockerImage, token: str = None) -> dict:
     tags = get_image_tags(image, token) or []
     for entry in tags:
         if entry['tag'] == image.tag:
@@ -124,7 +124,7 @@ def get_image_tag(image: DockerImage, token: str=None) -> dict:
     return None
 
 
-def get_image_tags(image: DockerImage, token: str=None) -> list:
+def get_image_tags(image: DockerImage, token: str = None) -> list:
     url = 'https://{}'.format(image.registry)
     path = '/teams/{team}/artifacts/{artifact}/tags'.format(team=image.team, artifact=image.artifact)
 
@@ -135,7 +135,7 @@ def get_image_tags(image: DockerImage, token: str=None) -> list:
             for entry in response.json()]
 
 
-def get_latest_tag(image: DockerImage, token: str=None) -> bool:
+def get_latest_tag(image: DockerImage, token: str = None) -> bool:
     url = 'https://{}'.format(image.registry)
     path = '/teams/{team}/artifacts/{artifact}/tags'.format(team=image.team, artifact=image.artifact)
 

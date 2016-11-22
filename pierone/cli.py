@@ -344,7 +344,7 @@ def scm_source(config, team, artifact, tag, url, output):
     rows = []
     for t in tag:
         r = request(config.get('url'), '/teams/{}/artifacts/{}/tags/{}/scm-source'.format(team, artifact, t),
-                      token, True)
+                    token, True)
         if r is None:
             row = {}
         else:
