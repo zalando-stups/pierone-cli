@@ -53,6 +53,7 @@ class DockerImage(collections.namedtuple('DockerImage', 'registry team artifact 
 
 
 def docker_login(url, realm, name, user, password, token_url=None, use_keyring=True, prompt=False):
+    token = None  # Make linters happy
     with Action('Getting OAuth2 token "{}"..'.format(name)) as action:
         try:
             token = get_named_token(['uid', 'application.write'],
@@ -91,26 +92,31 @@ def docker_login_with_token(url, access_token):
             json.dump(dockercfg, fd)
 
 
-def request(url, path, access_token: str=None) -> requests.Response:
-    headers = {}
+def request(url, path, access_token: str = None, not_found_is_none: bool = False) -> requests.Response:
     if access_token:
         headers = {'Authorization': 'Bearer {}'.format(access_token)}
-    return session.get('{}{}'.format(url, path), headers=headers, timeout=10)
+    else:
+        headers = {}
+    r = session.get('{}{}'.format(url, path), headers=headers, timeout=10)
+    if not_found_is_none and r.status_code == 404:
+        return None
+    else:
+        r.raise_for_status()
+        return r
 
 
-def image_exists(image: DockerImage, token: str=None) -> bool:
+def image_exists(image: DockerImage, token: str = None) -> bool:
     url = 'https://{}'.format(image.registry)
     path = '/v1/repositories/{team}/{artifact}/tags'.format(team=image.team, artifact=image.artifact)
 
-    try:
-        r = request(url, path, token)
-    except:
+    r = request(url, path, token, True)
+    if r is None:
         return False
     result = r.json()
     return image.tag in result
 
 
-def get_image_tag(image: DockerImage, token: str=None) -> dict:
+def get_image_tag(image: DockerImage, token: str = None) -> dict:
     tags = get_image_tags(image, token) or []
     for entry in tags:
         if entry['tag'] == image.tag:
@@ -118,26 +124,23 @@ def get_image_tag(image: DockerImage, token: str=None) -> dict:
     return None
 
 
-def get_image_tags(image: DockerImage, token: str=None) -> list:
+def get_image_tags(image: DockerImage, token: str = None) -> list:
     url = 'https://{}'.format(image.registry)
     path = '/teams/{team}/artifacts/{artifact}/tags'.format(team=image.team, artifact=image.artifact)
 
-    response = request(url, path, token)
-    if response.status_code == 404:
+    response = request(url, path, token, True)
+    if response is None:
         return None
-
     return [parse_pierone_artifact_dict(entry, image.team, image.artifact)
             for entry in response.json()]
 
 
-def get_latest_tag(image: DockerImage, token: str=None) -> bool:
+def get_latest_tag(image: DockerImage, token: str = None) -> bool:
     url = 'https://{}'.format(image.registry)
     path = '/teams/{team}/artifacts/{artifact}/tags'.format(team=image.team, artifact=image.artifact)
 
-    try:
-        r = request(url, path, token)
-        r.raise_for_status()
-    except:
+    r = request(url, path, token, True)
+    if r is None:
         return None
     result = r.json()
     if result:

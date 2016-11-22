@@ -125,31 +125,13 @@ def test_get_latest_tag(monkeypatch):
 
 
 def test_get_latest_tag_IOException(monkeypatch):
-    response = MagicMock()
-    response.status_code = 200
-    response.json.return_value = [{'created': '2015-06-01T14:12:03.276+0000',
-                                   'created_by': 'foobar',
-                                   'name': '0.17'},
-                                  {'created': '2015-06-11T15:27:34.672+0000',
-                                   'created_by': 'foobar',
-                                   'name': '0.18'},
-                                  {'created': '2015-06-11T16:13:29.152+0000',
-                                   'created_by': 'foobar',
-                                   'name': '0.22'},
-                                  {'created': '2015-06-11T15:36:55.033+0000',
-                                   'created_by': 'foobar',
-                                   'name': '0.19'},
-                                  {'created': '2015-06-11T15:45:50.225+0000',
-                                   'created_by': 'foobar',
-                                   'name': '0.20'},
-                                  {'created': '2015-06-11T15:51:49.307+0000',
-                                   'created_by': 'foobar',
-                                   'name': '0.21'}]
-    monkeypatch.setattr('pierone.api.session.get', MagicMock(side_effect=Exception(IOError), return_value=response))
+    monkeypatch.setattr('pierone.api.session.get', MagicMock(side_effect=IOError))
     image = DockerImage(registry='registry', team='foo', artifact='bar', tag='latest')
-    data = get_latest_tag(image)
-
-    assert data is None
+    try:
+        get_latest_tag(image)
+        assert False
+    except IOError as e:
+        pass  # Expected
 
 
 def test_get_latest_tag_non_json(monkeypatch):
@@ -180,11 +162,13 @@ def test_image_exists_IOException(monkeypatch):
     response.status_code = 200
     response.json.return_value = {'0.1': 'chksum',
                                   '0.2': 'chksum'}
-    monkeypatch.setattr('pierone.api.session.get', MagicMock(side_effect=Exception(IOError), return_value=response))
+    monkeypatch.setattr('pierone.api.session.get', MagicMock(side_effect=IOError(), return_value=response))
     image = DockerImage(registry='registry', team='foo', artifact='bar', tag='0.2')
-    data = image_exists(image)
-
-    assert data is False
+    try:
+        image_exists(image)
+        assert False
+    except IOError as e:
+        pass  # Expected
 
 
 def test_image_exists_but_other_version(monkeypatch):

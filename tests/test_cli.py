@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 import pytest
 from click.testing import CliRunner
 from pierone.cli import cli
-from requests import RequestException
+from requests import RequestException, HTTPError
 
 
 @pytest.fixture(autouse=True)
@@ -176,19 +176,44 @@ def test_scm_source(monkeypatch, tmpdir):
 
 
 def test_image(monkeypatch, tmpdir):
-    response = MagicMock()
-    response.json.return_value = [{'name': '1.0', 'team': 'stups', 'artifact': 'kio'}]
-
     runner = CliRunner()
     monkeypatch.setattr('stups_cli.config.load_config', lambda x: {'url': 'foobar'})
     monkeypatch.setattr('zign.api.get_token', MagicMock(return_value='tok123'))
     monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
+
+    response = MagicMock()
+    response.json.return_value = [{'name': '1.0', 'team': 'stups', 'artifact': 'kio'}]
     monkeypatch.setattr('pierone.api.session.get', MagicMock(return_value=response))
     with runner.isolated_filesystem():
         result = runner.invoke(cli, ['image', 'abcd'], catch_exceptions=False)
+        assert result.exit_code == 0
         assert 'kio' in result.output
         assert 'stups' in result.output
         assert '1.0' in result.output
+
+    monkeypatch.setattr('pierone.api.session.get', MagicMock(side_effect=Exception("Some unknown error")))
+    with runner.isolated_filesystem():
+        try:
+            runner.invoke(cli, ['image', 'abcd'], catch_exceptions=False)
+            assert False
+        except Exception as e:
+           assert e.args[0] == "Some unknown error"
+
+    response404 = MagicMock()
+    response404.status_code = 404
+    monkeypatch.setattr('pierone.api.session.get', MagicMock(side_effect=HTTPError(response=response404)))
+    with runner.isolated_filesystem():
+        result = runner.invoke(cli, ['image', 'abcd'], catch_exceptions=False)
+        # assert result.exit_code != 0
+        assert "not found" in result.output
+
+    response412 = MagicMock()
+    response412.status_code = 412
+    monkeypatch.setattr('pierone.api.session.get', MagicMock(side_effect=HTTPError(response=response412)))
+    with runner.isolated_filesystem():
+        result = runner.invoke(cli, ['image', 'abcd'], catch_exceptions=False)
+        # assert result.exit_code != 0
+        assert "more than one" in result.output
 
 
 def test_tags(monkeypatch, tmpdir):
@@ -444,6 +469,7 @@ def test_latest(monkeypatch, tmpdir):
 def test_latest_not_found(monkeypatch, tmpdir):
     response = MagicMock()
     response.raise_for_status.side_effect = Exception('FAIL')
+    response.status_code = 404
     runner = CliRunner()
     monkeypatch.setattr('stups_cli.config.load_config', lambda x: {'url': 'https://pierone.example.org'})
     monkeypatch.setattr('zign.api.get_token', MagicMock(return_value='tok123'))

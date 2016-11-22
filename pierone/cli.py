@@ -167,12 +167,10 @@ def get_artifacts(url, team: str, access_token):
 
 
 def get_tags(url, team, art, access_token):
-    r = request(url, '/teams/{}/artifacts/{}/tags'.format(team, art), access_token)
-    if r.status_code == 404:
+    r = request(url, '/teams/{}/artifacts/{}/tags'.format(team, art), access_token, True)
+    if r is None:
         # empty list of tags (artifact does not exist)
         return []
-    else:
-        r.raise_for_status()
     return r.json()
 
 
@@ -180,12 +178,10 @@ def get_clair_features(clair_details_url, access_token):
     if not clair_details_url:
         return []
 
-    r = request(clair_details_url, '?vulnerabilities&features', access_token)
-    if r.status_code == 404:
+    r = request(clair_details_url, '?vulnerabilities&features', access_token, True)
+    if r is None:
         # empty list of tags (layer does not exist)
         return []
-    else:
-        r.raise_for_status()
 
     return r.json()['Layer'].get('Features', [])
 
@@ -350,10 +346,12 @@ def scm_source(config, team, artifact, tag, url, output):
 
     rows = []
     for t in tag:
-        row = request(config.get('url'), '/teams/{}/artifacts/{}/tags/{}/scm-source'.format(team, artifact, t),
-                      token).json()
-        if not row:
+        r = request(config.get('url'), '/teams/{}/artifacts/{}/tags/{}/scm-source'.format(team, artifact, t),
+                    token, True)
+        if r is None:
             row = {}
+        else:
+            row = r.json()
         row['tag'] = t
         matching_tag = [d for d in tags if d['name'] == t]
         row['created_by'] = ''.join([d['created_by'] for d in matching_tag])
@@ -379,14 +377,16 @@ def image(config, image, url, output):
     set_pierone_url(config, url)
     token = get_token()
 
-    resp = request(config.get('url'), '/tags/{}'.format(image), token)
-
-    if resp.status_code == 404:
-        click.echo('Image {} not found'.format(image))
-        return
-
-    if resp.status_code == 412:
-        click.echo('Prefix {} matches more than one image.'.format(image))
+    try:
+        resp = request(config.get('url'), '/tags/{}'.format(image), token)
+    except requests.HTTPError as error:
+        status_code = error.response.status_code
+        if status_code == 404:
+            click.echo('Image {} not found'.format(image))
+        elif status_code == 412:
+            click.echo('Prefix {} matches more than one image.'.format(image))
+        else:
+            raise error
         return
 
     tags = resp.json()
