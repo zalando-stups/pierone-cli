@@ -437,6 +437,7 @@ def test_latest(monkeypatch, tmpdir):
 def test_latest_not_found(monkeypatch, tmpdir):
     response = MagicMock()
     response.raise_for_status.side_effect = Exception('FAIL')
+    response.status_code = 404
     runner = CliRunner()
     monkeypatch.setattr('stups_cli.config.load_config', lambda x: {'url': 'https://pierone.example.org'})
     monkeypatch.setattr('zign.api.get_token', MagicMock(return_value='tok123'))
