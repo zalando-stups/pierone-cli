@@ -8,7 +8,7 @@ import time
 
 import requests
 from clickclick import Action
-from zign.api import get_named_token
+from zign.api import get_token
 
 adapter = requests.adapters.HTTPAdapter(pool_connections=10, pool_maxsize=10)
 session = requests.Session()
@@ -52,23 +52,10 @@ class DockerImage(collections.namedtuple('DockerImage', 'registry team artifact 
         return '{}/{}/{}:{}'.format(*tuple(self))
 
 
+# all the other paramaters are deprecated, but still here for compatibility
 def docker_login(url, realm, name, user, password, token_url=None, use_keyring=True, prompt=False):
-    token = None  # Make linters happy
-    with Action('Getting OAuth2 token "{}"..'.format(name)) as action:
-        try:
-            token = get_named_token(['uid', 'application.write'],
-                                    realm, name, user, password, url=token_url,
-                                    use_keyring=use_keyring, prompt=prompt)
-        except requests.HTTPError as error:
-            status_code = error.response.status_code
-            if 400 <= status_code < 500:
-                action.fatal_error(
-                    'Authentication Failed ({} Client Error). Check your configuration.'.format(status_code))
-            if 500 <= status_code < 600:
-                action.fatal_error('Authentication Failed ({} Server Error).'.format(status_code))
-            else:
-                action.fatal_error('Authentication Failed ({})'.format(status_code))
-    access_token = token.get('access_token')
+    with Action('Getting OAuth2 token "{}"..'.format(name)):
+        access_token = get_token(name, ['uid', 'application.write'])
     docker_login_with_token(url, access_token)
 
 

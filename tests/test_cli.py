@@ -28,7 +28,7 @@ def test_login(monkeypatch, tmpdir):
     runner = CliRunner()
 
     monkeypatch.setattr('stups_cli.config.load_config', lambda x: {})
-    monkeypatch.setattr('pierone.api.get_named_token', MagicMock(return_value={'access_token': 'tok123'}))
+    monkeypatch.setattr('pierone.api.get_token', MagicMock(return_value='tok123'))
     monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
 
     with runner.isolated_filesystem():
@@ -45,7 +45,7 @@ def test_invalid_url_for_login(monkeypatch, tmpdir):
     response = MagicMock()
 
     monkeypatch.setattr('stups_cli.config.load_config', lambda x: {})
-    monkeypatch.setattr('pierone.api.get_named_token', MagicMock(return_value={'access_token': 'tok123'}))
+    monkeypatch.setattr('pierone.api.get_token', MagicMock(return_value='tok123'))
     monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
 
     # Missing Pier One header
@@ -138,7 +138,7 @@ def test_login_given_url_option(monkeypatch, tmpdir):
 
     monkeypatch.setattr('stups_cli.config.load_config', lambda x: {})
     monkeypatch.setattr('stups_cli.config.store_config', store)
-    monkeypatch.setattr('pierone.api.get_named_token', MagicMock(return_value={'access_token': 'tok123'}))
+    monkeypatch.setattr('pierone.api.get_token', MagicMock(return_value='tok123'))
     monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
 
     with runner.isolated_filesystem():

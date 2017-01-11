@@ -12,10 +12,7 @@ import requests.exceptions
 
 def test_docker_login(monkeypatch, tmpdir):
     monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
-    response = MagicMock()
-    response.status_code = 200
-    response.json.return_value = {'access_token': '12377'}
-    monkeypatch.setattr('requests.get', MagicMock(return_value=response))
+    monkeypatch.setattr('pierone.api.get_token', MagicMock(return_value='12377'))
     docker_login('https://pierone.example.org', 'services', 'mytok',
                  'myuser', 'mypass', 'https://token.example.org', use_keyring=False)
     path = os.path.expanduser('~/.docker/config.json')
@@ -36,44 +33,9 @@ def test_docker_login_service_token(monkeypatch, tmpdir):
                 'email': 'no-mail-required@example.org'} == data.get('auths').get('https://pierone.example.org')
 
 
-@pytest.mark.parametrize(
-    "status_code",
-    [
-        (400),
-        (404),
-        (500),
-        (502),
-        (700),  # nonsense status code that should be handled all the same
-    ])
-def test_docker_login_error(monkeypatch, status_code):
-    mock_get = MagicMock()
-    response = MagicMock()
-    response.status_code = status_code
-    mock_get.side_effect = requests.exceptions.HTTPError(response=response)
-    monkeypatch.setattr('tokens.get', mock_get)
-
-    mock_action = MagicMock()
-    mock_action.side_effect = SystemExit(1)
-    monkeypatch.setattr('pierone.api.Action.fatal_error', mock_action)
-    with pytest.raises(SystemExit):
-        docker_login('https://pierone.example.org', None, 'mytok', 'myuser', 'mypass', 'https://token.example.org')
-    mock_action.assert_called_once_with(ANY)
-    call = mock_action.call_args[0]
-    argument = call[0]  # type: str
-    assert argument.startswith("Authentication Failed")
-    assert str(status_code) in argument
-    if 400 <= status_code < 500:
-        assert "Client Error" in argument
-    if 500 <= status_code < 600:
-        assert "Server Error" in argument
-
-
 def test_keep_dockercfg_entries(monkeypatch, tmpdir):
     monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
-    response = MagicMock()
-    response.status_code = 200
-    response.json.return_value = {'access_token': '12377'}
-    monkeypatch.setattr('requests.get', MagicMock(return_value=response))
+    monkeypatch.setattr('pierone.api.get_token', MagicMock(return_value='12377'))
     path = os.path.expanduser('~/.docker/config.json')
 
     key = 'https://old.example.org'
