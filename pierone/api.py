@@ -79,6 +79,27 @@ def docker_login_with_token(url, access_token):
             json.dump(dockercfg, fd)
 
 
+def docker_login_with_iid(url):
+    '''Configure docker with IID auth'''
+
+    path = os.path.expanduser('~/.docker/config.json')
+    try:
+        with open(path) as fd:
+            dockercfg = json.load(fd)
+    except:
+        dockercfg = {}
+    pkcs7 = request('http://169.254.169.254', '/latest/dynamic/instance-identity/pkcs7')
+    basic_auth = codecs.encode('instance-identity-document:{}'.format(pkcs7.text).encode('utf-8'), 'base64').strip()
+    if 'auths' not in dockercfg:
+        dockercfg['auths'] = {}
+    dockercfg['auths'][url] = {'auth': basic_auth.decode('utf-8'),
+                               'email': 'no-mail-required@example.org'}
+    with Action('Storing Docker client configuration in {}..'.format(path)):
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, 'w') as fd:
+            json.dump(dockercfg, fd)
+
+
 def request(url, path, access_token: str = None, not_found_is_none: bool = False) -> requests.Response:
     if access_token:
         headers = {'Authorization': 'Bearer {}'.format(access_token)}

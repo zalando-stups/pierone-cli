@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, ANY
 
 import yaml
 import pytest
-from pierone.api import (DockerImage, docker_login, get_image_tag,
+from pierone.api import (DockerImage, docker_login, get_image_tag, docker_login_with_iid,
                          get_image_tags, get_latest_tag, image_exists)
 
 import requests.exceptions
@@ -30,6 +30,45 @@ def test_docker_login_service_token(monkeypatch, tmpdir):
     with open(path) as fd:
         data = yaml.safe_load(fd)
         assert {'auth': 'b2F1dGgyOjEyMzc3',
+                'email': 'no-mail-required@example.org'} == data.get('auths').get('https://pierone.example.org')
+
+
+def test_docker_login_with_iid(monkeypatch, tmpdir):
+    monkeypatch.setattr('os.path.expanduser',
+                        lambda x: x.replace('~', str(tmpdir)))
+    metaservice = MagicMock()
+    metaservice.text = '''TG9yZW0gaXBzdW0gZG9sb3Igc2l0IGFtZXQsIGNvbnNldGV0dXIgc2FkaXBzY2luZyBlbGl0ciwg
+c2VkIGRpYW0gbm9udW15IGVpcm1vZCB0ZW1wb3IgaW52aWR1bnQgdXQgbGFib3JlIGV0IGRvbG9y
+ZSBtYWduYSBhbGlxdXlhbSBlcmF0LCBzZWQgZGlhbSB2b2x1cHR1YS4gQXQgdmVybyBlb3MgZXQg
+YWNjdXNhbSBldCBqdXN0byBkdW8gZG9sb3JlcyBldCBlYSByZWJ1bS4gU3RldCBjbGl0YSBrYXNk
+IGd1YmVyZ3Jlbiwgbm8gc2VhIHRha2ltYXRhIHNhbmN0dXMgZXN0IExvcmVtIGlwc3VtIGRvbG9y
+IHNpdCBhbWV0LiBMb3JlbSBpcHN1bSBkb2xvciBzaXQgYW1ldCwgY29uc2V0ZXR1ciBzYWRpcHNj
+aW5nIGVsaXRyLCBzZWQgZGlhbSBub251bXkgZWlybW9kIHRlbXBvciBpbnZpZHVudCB1dCBsYWJv
+cmUgZXQgZG9sb3JlIG1hZ25hIGFsaXF1eWFtIGVyYXQsIHNlZCBkaWFtIHZvbHVwdHVhLiBBdCB2
+ZXJvIGVvcyBldCBhY2N1c2FtIGV0IGp1c3RvIGR1byBkb2xvcmVzIGV0IGVhIHJlYnVtLiBTdGV0
+IGNsaXRhIGthc2QgZ3ViZXJncmVuLCBubyBzZWEgdGFraW1hdGEgc2FuY3R1cyBlc3QgTG9yZW0g
+aXBzdW0gZG9sb3Igc2l0IGFtZXQuCg=='''
+    monkeypatch.setattr('pierone.api.request',
+                        MagicMock(return_value=metaservice))
+    docker_login_with_iid('https://pierone.example.org')
+    path = os.path.expanduser('~/.docker/config.json')
+    with open(path) as fd:
+        data = yaml.safe_load(fd)
+        assert {'auth': 'aW5zdGFuY2UtaWRlbnRpdHktZG9jdW1lbnQ6VEc5eVpXMGdhWEJ6ZFcwZ1pHOXNiM0lnYzJsMElH\n'
+                'RnRaWFFzSUdOdmJuTmxkR1YwZFhJZ2MyRmthWEJ6WTJsdVp5QmxiR2wwY2l3ZwpjMlZrSUdScFlX\n'
+                'MGdibTl1ZFcxNUlHVnBjbTF2WkNCMFpXMXdiM0lnYVc1MmFXUjFiblFnZFhRZ2JHRmliM0psSUdW\n'
+                'MElHUnZiRzl5ClpTQnRZV2R1WVNCaGJHbHhkWGxoYlNCbGNtRjBMQ0J6WldRZ1pHbGhiU0IyYjJ4\n'
+                'MWNIUjFZUzRnUVhRZ2RtVnlieUJsYjNNZ1pYUWcKWVdOamRYTmhiU0JsZENCcWRYTjBieUJrZFc4\n'
+                'Z1pHOXNiM0psY3lCbGRDQmxZU0J5WldKMWJTNGdVM1JsZENCamJHbDBZU0JyWVhOawpJR2QxWW1W\n'
+                'eVozSmxiaXdnYm04Z2MyVmhJSFJoYTJsdFlYUmhJSE5oYm1OMGRYTWdaWE4wSUV4dmNtVnRJR2x3\n'
+                'YzNWdElHUnZiRzl5CklITnBkQ0JoYldWMExpQk1iM0psYlNCcGNITjFiU0JrYjJ4dmNpQnphWFFn\n'
+                'WVcxbGRDd2dZMjl1YzJWMFpYUjFjaUJ6WVdScGNITmoKYVc1bklHVnNhWFJ5TENCelpXUWdaR2xo\n'
+                'YlNCdWIyNTFiWGtnWldseWJXOWtJSFJsYlhCdmNpQnBiblpwWkhWdWRDQjFkQ0JzWVdKdgpjbVVn\n'
+                'WlhRZ1pHOXNiM0psSUcxaFoyNWhJR0ZzYVhGMWVXRnRJR1Z5WVhRc0lITmxaQ0JrYVdGdElIWnZi\n'
+                'SFZ3ZEhWaExpQkJkQ0IyClpYSnZJR1Z2Y3lCbGRDQmhZMk4xYzJGdElHVjBJR3AxYzNSdklHUjFi\n'
+                'eUJrYjJ4dmNtVnpJR1YwSUdWaElISmxZblZ0TGlCVGRHVjAKSUdOc2FYUmhJR3RoYzJRZ1ozVmla\n'
+                'WEpuY21WdUxDQnVieUJ6WldFZ2RHRnJhVzFoZEdFZ2MyRnVZM1IxY3lCbGMzUWdURzl5WlcwZwph\n'
+                'WEJ6ZFcwZ1pHOXNiM0lnYzJsMElHRnRaWFF1Q2c9PQ==',
                 'email': 'no-mail-required@example.org'} == data.get('auths').get('https://pierone.example.org')
 
 
