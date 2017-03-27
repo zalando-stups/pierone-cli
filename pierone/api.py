@@ -88,14 +88,11 @@ def docker_login_with_iid(url):
             dockercfg = json.load(fd)
     except:
         dockercfg = {}
-    document_req = request('http://169.254.169.254', '/latest/dynamic/instance-identity/document')
-    document = codecs.encode(document_req.content, 'base64').strip().decode('utf-8')
-    pkcs7_req = request('http://169.254.169.254', '/latest/dynamic/instance-identity/pkcs7')
-    pkcs7 = codecs.encode(pkcs7_req.content, 'base64').strip().decode('utf-8')
-    basic_auth = codecs.encode('{}:{}'.format(document, pkcs7).encode('utf-8'), 'base64').strip().decode('utf-8')
+    pkcs7 = request('http://169.254.169.254', '/latest/dynamic/instance-identity/pkcs7')
+    basic_auth = codecs.encode('instance-identity-document:{}'.format(pkcs7.text).encode('utf-8'), 'base64').strip()
     if 'auths' not in dockercfg:
         dockercfg['auths'] = {}
-    dockercfg['auths'][url] = {'auth': basic_auth,
+    dockercfg['auths'][url] = {'auth': basic_auth.decode('utf-8'),
                                'email': 'no-mail-required@example.org'}
     with Action('Storing Docker client configuration in {}..'.format(path)):
         os.makedirs(os.path.dirname(path), exist_ok=True)
