@@ -127,7 +127,7 @@ def cli(ctx):
 @click.option('-p', '--password', help='Password to use for authentication', envvar='PIERONE_PASSWORD', metavar='PWD')
 @click.pass_obj
 def login(config, url, realm, name, user, password):
-    '''Login to Pier One Docker registry (generates ~/.dockercfg'''
+    '''Login to Pier One Docker registry (generates docker configuration in ~/.docker/config.json)'''
     url_option_was_set = url
     url = set_pierone_url(config, url)
     user = user or zign.api.get_config().get('user') or os.getenv('USER')
