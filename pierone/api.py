@@ -71,6 +71,9 @@ def docker_login_with_token(url, access_token):
     basic_auth = codecs.encode('oauth2:{}'.format(access_token).encode('utf-8'), 'base64').strip().decode('utf-8')
     if 'auths' not in dockercfg:
         dockercfg['auths'] = {}
+    if 'credsStore' in dockercfg:
+        del dockercfg['credsStore']
+
     dockercfg['auths'][url] = {'auth': basic_auth,
                                'email': 'no-mail-required@example.org'}
     with Action('Storing Docker client configuration in {}..'.format(path)):
