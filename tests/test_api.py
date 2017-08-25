@@ -27,7 +27,7 @@ def test_docker_login_with_credsstore(monkeypatch, tmpdir):
     path = os.path.expanduser('~/.docker/config.json')
     os.makedirs(os.path.dirname(path))
     with open(path, 'w') as fd:
-        fd.write(yaml.dump({
+        json.dump({
             "auths": {
                 "https://pierone.stups.zalan.do": {
                     "auth": "xxx",
@@ -35,9 +35,7 @@ def test_docker_login_with_credsstore(monkeypatch, tmpdir):
                 }
             },
             "credsStore": "osxkeychain"
-        }))
-    with open(path) as fd:
-        data = yaml.safe_load(fd)
+        }, fd)
     docker_login('https://pierone.example.org', 'services', 'mytok',
                  'myuser', 'mypass', 'https://token.example.org', use_keyring=False)
     with open(path) as fd:
