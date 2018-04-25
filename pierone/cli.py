@@ -230,15 +230,6 @@ def tags(config, team: str, artifact, url, output, limit):
 @click.pass_obj
 def cves(config, team, artifact, tag, url, output):
     '''List all CVE's found by Clair service for a specific artifact tag'''
-    titles = {
-        'cve': 'CVE',
-        'severity': 'Severity',
-        'affected_feature': 'Affected Feature',
-        'fixing_feature': 'Fixing Feature',
-        'link': 'Link'
-    }
-    print_table(['cve', 'severity', 'affected_feature', 'fixing_feature', 'link'],
-                [], titles=titles)
     print('\x1b[1;33m' +  '!! THIS FUNCTIONALITY IS DEPRECATED !!' + '\x1b[0m', file=sys.stderr)
 
 
