@@ -64,7 +64,7 @@ def set_pierone_url(config: dict, url: str) -> None:
 
         try:
             requests.get(url, timeout=5)
-        except:
+        except Exception as e:
             error('Could not reach {}'.format(url))
             url = None
 
@@ -217,8 +217,7 @@ def tags(config, team: str, artifact, url, output, limit):
             'created_time': 'Created',
             'created_by': 'By'
         }
-        print_table(['team', 'artifact', 'tag', 'created_time', 'created_by',],
-                    rows, titles=titles)
+        print_table(['team', 'artifact', 'tag', 'created_time', 'created_by'], rows, titles=titles)
 
 
 @cli.command()
@@ -230,7 +229,7 @@ def tags(config, team: str, artifact, url, output, limit):
 @click.pass_obj
 def cves(config, team, artifact, tag, url, output):
     '''List all CVE's found by Clair service for a specific artifact tag'''
-    print('\x1b[1;33m' +  '!! THIS FUNCTIONALITY IS DEPRECATED !!' + '\x1b[0m', file=sys.stderr)
+    print('\x1b[1;33m' + '!! THIS FUNCTIONALITY IS DEPRECATED !!' + '\x1b[0m', file=sys.stderr)
 
 
 @cli.command()
