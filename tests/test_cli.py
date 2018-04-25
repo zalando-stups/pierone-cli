@@ -289,12 +289,6 @@ def test_tags(monkeypatch, tmpdir):
     with runner.isolated_filesystem():
         result = runner.invoke(cli, ['tags', 'myteam', 'myart'], catch_exceptions=False)
         assert '1.0' in result.output
-        assert 'Fixable CVE Severity' in result.output
-        assert 'Unfixable CVE Severity' in result.output
-        assert 'TOO_OLD' in result.output
-        assert 'NOT_PROCESSED_YET' in result.output
-        assert 'NO_CVES_FOUND' in result.output
-        assert re.search('HIGH\s+MEDIUM', result.output), 'Should how information about CVEs'
 
 
 def test_tags_versions_limit(monkeypatch, tmpdir):
@@ -340,115 +334,6 @@ def test_tags_versions_limit(monkeypatch, tmpdir):
         assert '1.0' not in result.output
         assert '1.1' not in result.output
         assert '2.0' in result.output
-
-
-def test_cves(monkeypatch, tmpdir):
-    pierone_service_payload = [
-        # Former pierone payload
-        {
-            'name': '1.0',
-            'created_by': 'myuser',
-            'created': '2015-08-20T08:14:59.432Z'
-        },
-        # New pierone payload with clair but no information about CVEs
-        {
-            "name": "1.1",
-            "created": "2016-05-19T15:23:41.065Z",
-            "created_by": "myuser",
-            "image": "sha256:here",
-            "clair_id": None,
-            "severity_fix_available": None,
-            "severity_no_fix_available": None
-        },
-        # New pierone payload with clair input and info about CVEs
-        {
-            "name": "1.2",
-            "created": "2016-05-23T13:29:17.753Z",
-            "created_by": "myuser",
-            "image": "sha256:here",
-            "clair_id": "sha256:here",
-            "clair_details": "https://clair.example.org/some/path",
-            "severity_fix_available": "High",
-            "severity_no_fix_available": "Medium"
-        }
-    ]
-
-    with open(os.path.join(os.path.dirname(__file__),
-                           'fixtures', 'clair_response.json'), 'r') as fixture:
-        clair_service_payload = json.loads(fixture.read())
-
-    response = MagicMock()
-    response.json.side_effect = [
-        pierone_service_payload,
-        clair_service_payload
-    ]
-
-    runner = CliRunner()
-    monkeypatch.setattr('stups_cli.config.load_config', lambda x: {'url': 'foobar'})
-    monkeypatch.setattr('zign.api.get_token', MagicMock(return_value='tok123'))
-    monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
-    monkeypatch.setattr('pierone.api.session.get', MagicMock(return_value=response))
-    with runner.isolated_filesystem():
-        result = runner.invoke(cli, ['cves', 'myteam', 'myart', '1.2'], catch_exceptions=False)
-        assert 'CVE-2013-5123' in result.output
-        assert re.match('[^\n]+\n[^\n]+HIGH', result.output), 'Results should be ordered by highest priority'
-
-
-def test_no_cves_found(monkeypatch, tmpdir):
-    pierone_service_payload = [
-        # Former pierone payload
-        {
-            'name': '1.0',
-            'created_by': 'myuser',
-            'created': '2015-08-20T08:14:59.432Z'
-        },
-        # New pierone payload with clair but no information about CVEs
-        {
-            "name": "1.1",
-            "created": "2016-05-19T15:23:41.065Z",
-            "created_by": "myuser",
-            "image": "sha256:here",
-            "clair_id": None,
-            "severity_fix_available": None,
-            "severity_no_fix_available": None
-        },
-        # New pierone payload with clair input and info about CVEs
-        {
-            "name": "1.2",
-            "created": "2016-05-23T13:29:17.753Z",
-            "created_by": "myuser",
-            "image": "sha256:here",
-            "clair_id": "sha256:here",
-            "clair_details": "https://clair.example.org/foo",
-            "severity_fix_available": "High",
-            "severity_no_fix_available": "Medium"
-        }
-    ]
-
-    no_cves_clair_payload = {
-        "Layer": {
-            "Name": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
-            "NamespaceName": "ubuntu:16.04",
-            "ParentName": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
-            "IndexedByVersion": 2
-        }
-    }
-
-    response = MagicMock()
-    response.json.side_effect = [
-        pierone_service_payload,
-        no_cves_clair_payload
-    ]
-
-    runner = CliRunner()
-    monkeypatch.setattr('stups_cli.config.load_config', lambda x: {'url': 'foobar'})
-    monkeypatch.setattr('zign.api.get_token', MagicMock(return_value='tok123'))
-    monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
-    monkeypatch.setattr('pierone.api.session.get', MagicMock(return_value=response))
-    with runner.isolated_filesystem():
-        result = runner.invoke(cli, ['cves', 'myteam', 'myart', '1.2'], catch_exceptions=False)
-        assert re.match('^[^\n]+\n$', result.output), 'No results should be shown'
-
 
 def test_latest(monkeypatch, tmpdir):
     response = MagicMock()
