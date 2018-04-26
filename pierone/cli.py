@@ -8,6 +8,7 @@ import pierone
 import requests
 import stups_cli.config
 import zign.api
+import sys
 from clickclick import (AliasedGroup, OutputFormat, UrlType, error,
                         fatal_error, print_table)
 from requests import RequestException
@@ -24,41 +25,6 @@ output_option = click.option('-o', '--output', type=click.Choice(['text', 'json'
                              help='Use alternative output format')
 
 url_option = click.option('--url', help='Pier One URL', metavar='URI')
-
-CVE_STYLES = {
-    'TOO_OLD': {
-    },
-    'NOT_PROCESSED_YET': {
-    },
-    'COULDNT_FIGURE_OUT': {
-    },
-    'CRITICAL': {
-        'bold': True,
-        'fg': 'red'
-    },
-    'HIGH': {
-        'bold': True,
-        'fg': 'red'
-    },
-    'MEDIUM': {
-        'fg': 'yellow'
-    },
-    'LOW': {
-        'fg': 'yellow'
-    },
-    'NEGLIGIBLE': {
-        'fg': 'yellow'
-    },
-    'UNKNOWN': {
-        'fg': 'yellow'
-    },
-    'PENDING': {
-        'fg': 'yellow'
-    },
-    'NO_CVES_FOUND': {
-        'fg': 'green'
-    }
-}
 
 TEAM_PATTERN_STR = r'[a-z][a-z0-9-]+'
 TEAM_PATTERN = re.compile(r'^{}$'.format(TEAM_PATTERN_STR))
@@ -98,7 +64,7 @@ def set_pierone_url(config: dict, url: str) -> None:
 
         try:
             requests.get(url, timeout=5)
-        except:
+        except Exception as e:
             error('Could not reach {}'.format(url))
             url = None
 
@@ -249,13 +215,9 @@ def tags(config, team: str, artifact, url, output, limit):
     with OutputFormat(output):
         titles = {
             'created_time': 'Created',
-            'created_by': 'By',
-            'severity_fix_available': 'Fixable CVE Severity',
-            'severity_no_fix_available': 'Unfixable CVE Severity'
+            'created_by': 'By'
         }
-        print_table(['team', 'artifact', 'tag', 'created_time', 'created_by',
-                     'severity_fix_available', 'severity_no_fix_available'],
-                    rows, titles=titles, styles=CVE_STYLES)
+        print_table(['team', 'artifact', 'tag', 'created_time', 'created_by'], rows, titles=titles)
 
 
 @cli.command()
@@ -267,37 +229,7 @@ def tags(config, team: str, artifact, url, output, limit):
 @click.pass_obj
 def cves(config, team, artifact, tag, url, output):
     '''List all CVE's found by Clair service for a specific artifact tag'''
-    set_pierone_url(config, url)
-
-    rows = []
-    token = get_token()
-    for artifact_tag in get_tags(config.get('url'), team, artifact, token):
-        if artifact_tag['name'] == tag:
-            installed_software = get_clair_features(artifact_tag.get('clair_details'), token)
-            for software_pkg in installed_software:
-                for cve in software_pkg.get('Vulnerabilities', []):
-                    rows.append({
-                        'cve': cve['Name'],
-                        'severity': cve['Severity'].upper(),
-                        'affected_feature': '{}:{}'.format(software_pkg['Name'],
-                                                           software_pkg['Version']),
-                        'fixing_feature': cve.get(
-                            'FixedBy') and '{}:{}'.format(software_pkg['Name'],
-                                                          cve['FixedBy']),
-                        'link': cve['Link'],
-                    })
-    severity_rating = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'NEGLIGIBLE', 'UNKNOWN', 'PENDING']
-    rows.sort(key=lambda row: severity_rating.index(row['severity']))
-    with OutputFormat(output):
-        titles = {
-            'cve': 'CVE',
-            'severity': 'Severity',
-            'affected_feature': 'Affected Feature',
-            'fixing_feature': 'Fixing Feature',
-            'link': 'Link'
-        }
-        print_table(['cve', 'severity', 'affected_feature', 'fixing_feature', 'link'],
-                    rows, titles=titles, styles=CVE_STYLES)
+    print('\x1b[1;33m' + '!! THIS FUNCTIONALITY IS DEPRECATED !!' + '\x1b[0m', file=sys.stderr)
 
 
 @cli.command()

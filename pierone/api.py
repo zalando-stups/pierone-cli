@@ -66,7 +66,7 @@ def docker_login_with_token(url, access_token):
     try:
         with open(path) as fd:
             dockercfg = json.load(fd)
-    except:
+    except Exception as e:
         dockercfg = {}
     basic_auth = codecs.encode('oauth2:{}'.format(access_token).encode('utf-8'), 'base64').strip().decode('utf-8')
     if 'auths' not in dockercfg:
@@ -89,7 +89,7 @@ def docker_login_with_iid(url):
     try:
         with open(path) as fd:
             dockercfg = json.load(fd)
-    except:
+    except Exception as e:
         dockercfg = {}
     pkcs7 = request('http://169.254.169.254', '/latest/dynamic/instance-identity/pkcs7')
     basic_auth = codecs.encode('instance-identity-document:{}'.format(pkcs7.text).encode('utf-8'), 'base64').strip()
