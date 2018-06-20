@@ -171,7 +171,8 @@ def parse_pierone_artifact_dict(original_payload_from_api, team, artifact) -> di
                 original_payload_from_api.get('clair_id', False)),
             'severity_no_fix_available': parse_severity(
                 original_payload_from_api.get('severity_no_fix_available'),
-                original_payload_from_api.get('clair_id', False))}
+                original_payload_from_api.get('clair_id', False)),
+            'trusted': original_payload_from_api.get('trusted')}
 
 
 def parse_time(s: str) -> float:
