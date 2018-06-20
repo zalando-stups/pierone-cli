@@ -278,6 +278,18 @@ def test_tags(monkeypatch, tmpdir):
             "clair_details": "https://clair.example.org/foo/",
             "severity_fix_available": "High",
             "severity_no_fix_available": "Medium"
+        },
+        # New pierone payload with info about image trusted status
+        {
+            "name": "1.2",
+            "created": "2016-05-23T13:29:17.753Z",
+            "created_by": "myuser",
+            "image": "sha256:here",
+            "clair_id": "sha256:here",
+            "clair_details": "https://clair.example.org/foo/",
+            "severity_fix_available": "High",
+            "severity_no_fix_available": "Medium",
+            "trusted": "true"
         }
     ]
 
