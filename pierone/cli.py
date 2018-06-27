@@ -14,7 +14,7 @@ from clickclick import (AliasedGroup, OutputFormat, UrlType, error,
 from requests import RequestException
 
 from .api import (DockerImage, Unauthorized, docker_login, get_image_tags,
-                  get_latest_tag, parse_time, request)
+                  get_latest_tag, parse_time, request, request_post)
 from .exceptions import PieroneException
 
 KEYRING_KEY = 'pierone'
@@ -298,6 +298,89 @@ def scm_source(config, team, artifact, tag, url, output):
                     titles={'tag': 'Tag', 'created_by': 'By', 'created_time': 'Created',
                             'url': 'URL', 'revision': 'Revision', 'status': 'Status'},
                     max_column_widths={'revision': 10})
+
+def query_yes_no(question, default="yes"):
+    """Ask a yes/no question via raw_input() and return their answer.
+
+    "question" is a string that is presented to the user.
+    "default" is the presumed answer if the user just hits <Enter>.
+        It must be "yes" (the default), "no" or None (meaning
+        an answer is required of the user).
+
+    The "answer" return value is True for "yes" or False for "no".
+    """
+    valid = {"yes": True, "y": True, "ye": True,
+             "no": False, "n": False}
+    if default is None:
+        prompt = " [y/n] "
+    elif default == "yes":
+        prompt = " [Y/n] "
+    elif default == "no":
+        prompt = " [y/N] "
+    else:
+        raise ValueError("invalid default answer: '%s'" % default)
+
+    while True:
+        sys.stdout.write(question + prompt)
+        choice = input().lower()
+        if default is not None and choice == '':
+            return valid[default]
+        elif choice in valid:
+            return valid[choice]
+        else:
+            sys.stdout.write("Please respond with 'yes' or 'no' "
+                             "(or 'y' or 'n').\n")
+
+@cli.command('mark-trusted')
+@click.argument('team', callback=validate_team)
+@click.argument('artifact')
+@click.argument('tag')
+@url_option
+@output_option
+@click.pass_obj
+def mark_trusted(config, team, artifact, tag, url, output):
+    '''Mark untrusted image as trusted in Docker Registry'''
+    set_pierone_url(config, url)
+    token = get_token()
+
+    tags = get_tags(config.get('url'), team, artifact, token)
+
+    if not tags:
+        raise click.UsageError('Artifact or Team does not exist! '
+                               'Please double check for spelling mistakes.')
+
+    if tag not in [t['name'] for t in tags]:
+        raise click.UsageError('Provided Tag does not exist!'
+                               'Please double check for spelling mistakes.')
+
+    r = request(config.get('url'), '/teams/{}/artifacts/{}/tags/{}/scm-source'.format(team, artifact, tag),
+                token, True)
+    if r is None:
+        raise click.ClickException('No SCM source available for tag, cannot mark as trusted.')
+    else:
+        row = r.json()
+        tag_info = [d for d in tags if d['name'] == tag][0]
+        print(tag_info)
+        row['tag'] = tag
+        row['created_by'] =  tag_info['created_by']
+        row['created_time'] = parse_time(tag_info['created'])
+
+        with OutputFormat(output):
+            print_table(['tag', 'author', 'url', 'revision', 'status', 'created_time', 'created_by'], [row],
+                    titles={'tag': 'Tag', 'created_by': 'By', 'created_time': 'Created',
+                            'url': 'URL', 'revision': 'Revision', 'status': 'Status'},)
+        valid = row.get('valid')
+        if valid is not True:
+            raise click.ClickException('SCM source information is not valid, cannot mark as trusted.')
+        else:
+            if query_yes_no('Lawd above! Do yew really wan\' ter mark dis image as trusted?'):
+                request_post(config.get('url'), '/teams/{}/artifacts/{}/tags/{}/approval'.format(team, artifact, tag), None,
+                              token, False)
+                print('\x1b[0;32m' + 'Marked image as trusted.' + '\x1b[0m')
+            else:
+                print('\x1b[1;33m' + 'Canceled.' + '\x1b[0m')
+
+
 
 
 @cli.command('image')
