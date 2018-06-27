@@ -360,7 +360,6 @@ def mark_trusted(config, team, artifact, tag, url, output):
     else:
         row = r.json()
         tag_info = [d for d in tags if d['name'] == tag][0]
-        print(tag_info)
         row['tag'] = tag
         row['created_by'] =  tag_info['created_by']
         row['created_time'] = parse_time(tag_info['created'])
