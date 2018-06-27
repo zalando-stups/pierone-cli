@@ -302,6 +302,53 @@ def test_tags(monkeypatch, tmpdir):
         result = runner.invoke(cli, ['tags', 'myteam', 'myart'], catch_exceptions=False)
         assert '1.0' in result.output
 
+def test_mark_trusted(monkeypatch, tmpdir):
+    tags = [{"clair_details": None,
+             "clair_id": "",
+             "created": "2018-06-25T14:14:47.403Z",
+             "created_by": "mmagoo",
+             "image": "sha256:519e452a96550dc5d900270d34e453f0395f404c69b26bf87f3347a410a07cfe",
+             "name": "1",
+             "severity_fix_available": None,
+             "severity_no_fix_available": None,
+             "trusted": False}]
+
+    trust_response = MagicMock()
+    trust_response.raise_for_status = lambda : True
+    runner = CliRunner()
+    monkeypatch.setattr('stups_cli.config.load_config', lambda x: {'url': 'foobar'})
+    monkeypatch.setattr('zign.api.get_token', MagicMock(return_value='tok123'))
+    monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
+    monkeypatch.setattr('pierone.cli.get_tags', MagicMock(return_value=[]))
+    with runner.isolated_filesystem():
+        result = runner.invoke(cli, ['mark-trusted', 'foo', 'bar', '1'], catch_exceptions=False)
+        assert 'Artifact or Team does not exist! Please double check for spelling mistakes.' in result.output
+
+    scm_response = MagicMock()
+    scm_response.status_code = 404
+    monkeypatch.setattr('pierone.cli.get_tags', MagicMock(return_value=tags))
+    monkeypatch.setattr('pierone.cli.query_yes_no', lambda x: True)
+    monkeypatch.setattr('pierone.api.session.get', MagicMock(return_value=scm_response))
+
+    with runner.isolated_filesystem():
+        result = runner.invoke(cli, ['mark-trusted', 'foo', 'bar', '1'], catch_exceptions=False)
+        assert 'No SCM source available for tag, cannot mark as trusted.' in result.output
+
+
+    scm_response.status_code = 200
+    scm_response.json.return_value = {"author": "mmagoo",
+                                      "created": "2017-11-29T09:56:43.803Z",
+                                      "revision": "cs5f25c658a246f836c9fe9fbb01c2c106e066db",
+                                      "status": "",
+                                      "valid": True,
+                                      "url": "git:git@github.bus.zalan.do:continuous-delivery/cdp-controller.git"}
+
+    monkeypatch.setattr('pierone.api.session.get', MagicMock(return_value=scm_response))
+    monkeypatch.setattr('pierone.api.session.post', MagicMock(return_value=trust_response))
+    with runner.isolated_filesystem():
+        result = runner.invoke(cli, ['mark-trusted', 'foo', 'bar', '1'], catch_exceptions=False)
+        assert 'Marked image as trusted.' in result.output
+
 
 def test_tags_versions_limit(monkeypatch, tmpdir):
     artifacts = ['app1', 'app2']
