@@ -365,9 +365,9 @@ def mark_trusted(config, team, artifact, tag, url, output):
         row['created_time'] = parse_time(tag_info['created'])
 
         with OutputFormat(output):
-            print_table(['tag', 'author', 'url', 'revision', 'status', 'created_time', 'created_by'], [row],
+            print_table(['tag', 'author', 'url', 'revision', 'status', 'created_time', 'created_by', 'valid'], [row],
                     titles={'tag': 'Tag', 'created_by': 'By', 'created_time': 'Created',
-                            'url': 'URL', 'revision': 'Revision', 'status': 'Status'},)
+                            'url': 'URL', 'revision': 'Revision', 'status': 'Status', 'valid': 'Valid'},)
         valid = row.get('valid')
         if valid is not True:
             raise click.ClickException('SCM source information is not valid, cannot mark as trusted.')
