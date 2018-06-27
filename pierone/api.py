@@ -115,6 +115,7 @@ def request(url, path, access_token: str = None, not_found_is_none: bool = False
         r.raise_for_status()
         return r
 
+
 def request_post(url, path, body, access_token: str = None, not_found_is_none: bool = False) -> requests.Response:
     if access_token:
         headers = {'Authorization': 'Bearer {}'.format(access_token)}
@@ -126,7 +127,6 @@ def request_post(url, path, body, access_token: str = None, not_found_is_none: b
     else:
         r.raise_for_status()
         return r
-
 
 
 def image_exists(image: DockerImage, token: str = None) -> bool:

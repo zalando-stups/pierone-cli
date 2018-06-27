@@ -331,6 +331,7 @@ def query_yes_no(question, default="yes"):
             sys.stdout.write("Please respond with 'yes' or 'no' "
                              "(or 'y' or 'n').\n")
 
+
 @cli.command('mark-trusted')
 @click.argument('team', callback=validate_team)
 @click.argument('artifact')
@@ -366,20 +367,20 @@ def mark_trusted(config, team, artifact, tag, url, output):
 
         with OutputFormat(output):
             print_table(['tag', 'author', 'url', 'revision', 'status', 'created_time', 'created_by', 'valid'], [row],
-                    titles={'tag': 'Tag', 'created_by': 'By', 'created_time': 'Created',
-                            'url': 'URL', 'revision': 'Revision', 'status': 'Status', 'valid': 'Valid'},)
+                        titles={'tag': 'Tag', 'created_by': 'By', 'created_time': 'Created',
+                                'url': 'URL', 'revision': 'Revision', 'status': 'Status', 'valid': 'Valid'},)
+
         valid = row.get('valid')
+
         if valid is not True:
             raise click.ClickException('SCM source information is not valid, cannot mark as trusted.')
         else:
             if query_yes_no('Do you want to mark this image as trusted?'):
-                request_post(config.get('url'), '/teams/{}/artifacts/{}/tags/{}/approval'.format(team, artifact, tag), None,
-                              token, False)
+                request_post(config.get('url'), '/teams/{}/artifacts/{}/tags/{}/approval'.format(team, artifact, tag),
+                             None, token, False)
                 print('\x1b[0;32m' + 'Marked image as trusted.' + '\x1b[0m')
             else:
                 print('\x1b[1;33m' + 'Canceled.' + '\x1b[0m')
-
-
 
 
 @cli.command('image')
