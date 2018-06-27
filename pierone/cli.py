@@ -299,6 +299,7 @@ def scm_source(config, team, artifact, tag, url, output):
                             'url': 'URL', 'revision': 'Revision', 'status': 'Status'},
                     max_column_widths={'revision': 10})
 
+
 def query_yes_no(question, default="yes"):
     """Ask a yes/no question via raw_input() and return their answer.
 
@@ -362,7 +363,7 @@ def mark_trusted(config, team, artifact, tag, url, output):
         row = r.json()
         tag_info = [d for d in tags if d['name'] == tag][0]
         row['tag'] = tag
-        row['created_by'] =  tag_info['created_by']
+        row['created_by'] = tag_info['created_by']
         row['created_time'] = parse_time(tag_info['created'])
 
         with OutputFormat(output):
