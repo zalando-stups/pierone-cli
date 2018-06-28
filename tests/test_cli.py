@@ -327,7 +327,7 @@ def test_mark_trusted(monkeypatch, tmpdir):
     scm_response = MagicMock()
     scm_response.status_code = 404
     monkeypatch.setattr('pierone.cli.get_tags', MagicMock(return_value=tags))
-    monkeypatch.setattr('click.prompt', lambda x: True)
+    monkeypatch.setattr('click.confirm', lambda x: True)
     monkeypatch.setattr('pierone.api.session.get', MagicMock(return_value=scm_response))
 
     with runner.isolated_filesystem():

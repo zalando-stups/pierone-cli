@@ -343,12 +343,12 @@ def mark_trusted(config, team, artifact, tag, url, output):
         if valid is not True:
             raise click.ClickException('SCM source information is not valid, cannot mark as trusted.')
         else:
-            if click.prompt('Do you want to mark this image as trusted? [y/n]'):
+            if click.confirm('Do you want to mark this image as trusted?'):
                 request(config.get('url'), '/teams/{}/artifacts/{}/tags/{}/approval'.format(team, artifact, tag),
                         access_token=token, method='POST', data=None)
                 click.echo(click.style('Marked image as trusted.', fg='green'))
             else:
-                click.echo(click.style('Canceled.', fg='orange'))
+                click.echo(click.style('Canceled.', fg='red'))
 
 
 
