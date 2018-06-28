@@ -109,12 +109,9 @@ def request(url, path, access_token: str = None,
         headers = {'Authorization': 'Bearer {}'.format(access_token)}
     else:
         headers = {}
-    if method == 'GET':
-        r = session.get('{}{}'.format(url, path), headers=headers, timeout=10)
-    elif method == 'POST':
-        r = session.post('{}{}'.format(url, path), headers=headers, data=data, timeout=10)
-    else:
-        raise RuntimeError('HTTP method {} not supported!'.format(method))
+
+    r = session.request(method, '{}{}'.format(url, path), headers=headers, data=data, timeout=10)
+
     if not_found_is_none and r.status_code == 404:
         return None
     else:
