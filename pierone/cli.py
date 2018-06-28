@@ -346,9 +346,9 @@ def mark_trusted(config, team, artifact, tag, url, output):
             if click.confirm('Do you want to mark this image as trusted?'):
                 request(config.get('url'), '/teams/{}/artifacts/{}/tags/{}/approval'.format(team, artifact, tag),
                         access_token=token, method='POST', data=None)
-                click.echo(click.style('Marked image as trusted.', fg='green'))
+                click.secho('Marked image as trusted.', fg='green')
             else:
-                click.echo(click.style('Canceled.', fg='red'))
+                click.secho('Canceled.', fg='red')
 
 
 @cli.command('image')
