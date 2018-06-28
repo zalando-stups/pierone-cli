@@ -103,7 +103,8 @@ def docker_login_with_iid(url):
             json.dump(dockercfg, fd)
 
 
-def request(url, path, access_token: str = None, not_found_is_none: bool = False, method: str = 'GET', data=None) -> requests.Response:
+def request(url, path, access_token: str = None,
+            not_found_is_none: bool = False, method: str = 'GET', data=None) -> requests.Response:
     if access_token:
         headers = {'Authorization': 'Bearer {}'.format(access_token)}
     else:
@@ -113,12 +114,13 @@ def request(url, path, access_token: str = None, not_found_is_none: bool = False
     elif method == 'POST':
         r = session.post('{}{}'.format(url, path), headers=headers, data=data, timeout=10)
     else:
-         raise RuntimeError('HTTP method {} not supported!'.format(method))
+        raise RuntimeError('HTTP method {} not supported!'.format(method))
     if not_found_is_none and r.status_code == 404:
         return None
     else:
         r.raise_for_status()
         return r
+
 
 def image_exists(image: DockerImage, token: str = None) -> bool:
     url = 'https://{}'.format(image.registry)

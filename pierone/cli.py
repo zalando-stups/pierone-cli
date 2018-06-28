@@ -299,6 +299,7 @@ def scm_source(config, team, artifact, tag, url, output):
                             'url': 'URL', 'revision': 'Revision', 'status': 'Status'},
                     max_column_widths={'revision': 10})
 
+
 @cli.command('mark-trusted')
 @click.argument('team', callback=validate_team)
 @click.argument('artifact')
@@ -344,7 +345,7 @@ def mark_trusted(config, team, artifact, tag, url, output):
         else:
             if click.prompt('Do you want to mark this image as trusted? [y/n]'):
                 request(config.get('url'), '/teams/{}/artifacts/{}/tags/{}/approval'.format(team, artifact, tag),
-                             access_token=token, method='POST', data=None)
+                        access_token=token, method='POST', data=None)
                 print('\x1b[0;32m' + 'Marked image as trusted.' + '\x1b[0m')
             else:
                 print('\x1b[1;33m' + 'Canceled.' + '\x1b[0m')
