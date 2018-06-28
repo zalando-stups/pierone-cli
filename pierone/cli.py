@@ -351,7 +351,6 @@ def mark_trusted(config, team, artifact, tag, url, output):
                 click.echo(click.style('Canceled.', fg='red'))
 
 
-
 @cli.command('image')
 @click.argument('image')
 @url_option
