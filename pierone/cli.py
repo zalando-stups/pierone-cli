@@ -14,7 +14,7 @@ from clickclick import (AliasedGroup, OutputFormat, UrlType, error,
 from requests import RequestException
 
 from .api import (DockerImage, Unauthorized, docker_login, get_image_tags,
-                  get_latest_tag, parse_time, request, request_post)
+                  get_latest_tag, parse_time, request)
 from .exceptions import PieroneException
 
 KEYRING_KEY = 'pierone'
@@ -346,9 +346,10 @@ def mark_trusted(config, team, artifact, tag, url, output):
             if click.prompt('Do you want to mark this image as trusted? [y/n]'):
                 request(config.get('url'), '/teams/{}/artifacts/{}/tags/{}/approval'.format(team, artifact, tag),
                         access_token=token, method='POST', data=None)
-                print('\x1b[0;32m' + 'Marked image as trusted.' + '\x1b[0m')
+                click.echo(click.style('Marked image as trusted.', fg='green'))
             else:
-                print('\x1b[1;33m' + 'Canceled.' + '\x1b[0m')
+                click.echo(click.style('Canceled.', fg='orange'))
+
 
 
 @cli.command('image')
