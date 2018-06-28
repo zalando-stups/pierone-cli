@@ -103,12 +103,15 @@ def docker_login_with_iid(url):
             json.dump(dockercfg, fd)
 
 
-def request(url, path, access_token: str = None, not_found_is_none: bool = False) -> requests.Response:
+def request(url, path, access_token: str = None,
+            not_found_is_none: bool = False, method: str = 'GET', data=None) -> requests.Response:
     if access_token:
         headers = {'Authorization': 'Bearer {}'.format(access_token)}
     else:
         headers = {}
-    r = session.get('{}{}'.format(url, path), headers=headers, timeout=10)
+
+    r = session.request(method, '{}{}'.format(url, path), headers=headers, data=data, timeout=10)
+
     if not_found_is_none and r.status_code == 404:
         return None
     else:

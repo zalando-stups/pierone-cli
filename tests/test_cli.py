@@ -161,7 +161,7 @@ def test_scm_source(monkeypatch, tmpdir):
     monkeypatch.setattr('zign.api.get_token', MagicMock(return_value='tok123'))
     monkeypatch.setattr('pierone.cli.get_tags', MagicMock(return_value=[{'name': 'myart'}]))
     monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
-    monkeypatch.setattr('pierone.api.session.get', MagicMock(return_value=response))
+    monkeypatch.setattr('pierone.api.session.request', MagicMock(return_value=response))
     with runner.isolated_filesystem():
         result = runner.invoke(cli, ['scm-source', 'myteam', 'myart', '1.0'], catch_exceptions=False)
         assert 'myrev123' in result.output
@@ -183,7 +183,7 @@ def test_image(monkeypatch, tmpdir):
 
     response = MagicMock()
     response.json.return_value = [{'name': '1.0', 'team': 'stups', 'artifact': 'kio'}]
-    monkeypatch.setattr('pierone.api.session.get', MagicMock(return_value=response))
+    monkeypatch.setattr('pierone.api.session.request', MagicMock(return_value=response))
     with runner.isolated_filesystem():
         result = runner.invoke(cli, ['image', 'abcd'], catch_exceptions=False)
         assert result.exit_code == 0
@@ -191,7 +191,7 @@ def test_image(monkeypatch, tmpdir):
         assert 'stups' in result.output
         assert '1.0' in result.output
 
-    monkeypatch.setattr('pierone.api.session.get', MagicMock(side_effect=Exception("Some unknown error")))
+    monkeypatch.setattr('pierone.api.session.request', MagicMock(side_effect=Exception("Some unknown error")))
     with runner.isolated_filesystem():
         try:
             runner.invoke(cli, ['image', 'abcd'], catch_exceptions=False)
@@ -201,7 +201,7 @@ def test_image(monkeypatch, tmpdir):
 
     response404 = MagicMock()
     response404.status_code = 404
-    monkeypatch.setattr('pierone.api.session.get', MagicMock(side_effect=HTTPError(response=response404)))
+    monkeypatch.setattr('pierone.api.session.request', MagicMock(side_effect=HTTPError(response=response404)))
     with runner.isolated_filesystem():
         result = runner.invoke(cli, ['image', 'abcd'], catch_exceptions=False)
         # assert result.exit_code != 0
@@ -209,7 +209,7 @@ def test_image(monkeypatch, tmpdir):
 
     response412 = MagicMock()
     response412.status_code = 412
-    monkeypatch.setattr('pierone.api.session.get', MagicMock(side_effect=HTTPError(response=response412)))
+    monkeypatch.setattr('pierone.api.session.request', MagicMock(side_effect=HTTPError(response=response412)))
     with runner.isolated_filesystem():
         result = runner.invoke(cli, ['image', 'abcd'], catch_exceptions=False)
         # assert result.exit_code != 0
@@ -297,10 +297,57 @@ def test_tags(monkeypatch, tmpdir):
     monkeypatch.setattr('stups_cli.config.load_config', lambda x: {'url': 'foobar'})
     monkeypatch.setattr('zign.api.get_token', MagicMock(return_value='tok123'))
     monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
-    monkeypatch.setattr('pierone.api.session.get', MagicMock(return_value=response))
+    monkeypatch.setattr('pierone.api.session.request', MagicMock(return_value=response))
     with runner.isolated_filesystem():
         result = runner.invoke(cli, ['tags', 'myteam', 'myart'], catch_exceptions=False)
         assert '1.0' in result.output
+
+def test_mark_trusted(monkeypatch, tmpdir):
+    tags = [{"clair_details": None,
+             "clair_id": "",
+             "created": "2018-06-25T14:14:47.403Z",
+             "created_by": "mmagoo",
+             "image": "sha256:519e452a96550dc5d900270d34e453f0395f404c69b26bf87f3347a410a07cfe",
+             "name": "1",
+             "severity_fix_available": None,
+             "severity_no_fix_available": None,
+             "trusted": False}]
+
+    trust_response = MagicMock()
+    trust_response.raise_for_status = lambda : True
+    runner = CliRunner()
+    monkeypatch.setattr('stups_cli.config.load_config', lambda x: {'url': 'foobar'})
+    monkeypatch.setattr('zign.api.get_token', MagicMock(return_value='tok123'))
+    monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
+    monkeypatch.setattr('pierone.cli.get_tags', MagicMock(return_value=[]))
+    with runner.isolated_filesystem():
+        result = runner.invoke(cli, ['mark-trusted', 'foo', 'bar', '1'], catch_exceptions=False)
+        assert 'Artifact or Team does not exist! Please double check for spelling mistakes.' in result.output
+
+    scm_response = MagicMock()
+    scm_response.status_code = 404
+    monkeypatch.setattr('pierone.cli.get_tags', MagicMock(return_value=tags))
+    monkeypatch.setattr('click.confirm', lambda x: True)
+    monkeypatch.setattr('pierone.api.session.request', MagicMock(return_value=scm_response))
+
+    with runner.isolated_filesystem():
+        result = runner.invoke(cli, ['mark-trusted', 'foo', 'bar', '1'], catch_exceptions=False)
+        assert 'No SCM source available for tag, cannot mark as trusted.' in result.output
+
+
+    scm_response.status_code = 200
+    scm_response.json.return_value = {"author": "mmagoo",
+                                      "created": "2017-11-29T09:56:43.803Z",
+                                      "revision": "cs5f25c658a246f836c9fe9fbb01c2c106e066db",
+                                      "status": "",
+                                      "valid": True,
+                                      "url": "git:git@github.bus.zalan.do:continuous-delivery/cdp-controller.git"}
+
+    monkeypatch.setattr('pierone.api.session.request', MagicMock(return_value=scm_response))
+    monkeypatch.setattr('pierone.api.session.request', MagicMock(return_value=trust_response))
+    with runner.isolated_filesystem():
+        result = runner.invoke(cli, ['mark-trusted', 'foo', 'bar', '1'], catch_exceptions=False)
+        assert 'Marked image as trusted.' in result.output
 
 
 def test_tags_versions_limit(monkeypatch, tmpdir):
@@ -357,7 +404,7 @@ def test_latest(monkeypatch, tmpdir):
     runner = CliRunner()
     monkeypatch.setattr('stups_cli.config.load_config', lambda x: {'url': 'https://pierone.example.org'})
     monkeypatch.setattr('zign.api.get_token', MagicMock(return_value='tok123'))
-    monkeypatch.setattr('pierone.api.session.get', MagicMock(return_value=response))
+    monkeypatch.setattr('pierone.api.session.request', MagicMock(return_value=response))
     with runner.isolated_filesystem():
         result = runner.invoke(cli, ['latest', 'myteam', 'myart'], catch_exceptions=False)
         assert '1.0' == result.output.rstrip()
@@ -370,7 +417,7 @@ def test_latest_not_found(monkeypatch, tmpdir):
     runner = CliRunner()
     monkeypatch.setattr('stups_cli.config.load_config', lambda x: {'url': 'https://pierone.example.org'})
     monkeypatch.setattr('zign.api.get_token', MagicMock(return_value='tok123'))
-    monkeypatch.setattr('pierone.api.session.get', MagicMock(return_value=response))
+    monkeypatch.setattr('pierone.api.session.request', MagicMock(return_value=response))
     with runner.isolated_filesystem():
         result = runner.invoke(cli, ['latest', 'myteam', 'myart'], catch_exceptions=False)
         assert 'Error: Latest tag not found' == result.output.rstrip()
@@ -381,14 +428,15 @@ def test_url_without_scheme(monkeypatch, tmpdir):
     response = MagicMock()
     response.json.return_value = [{'name': '1.0', 'created_by': 'myuser', 'created': '2015-08-20T08:14:59.432Z'}]
 
-    def get(url, **kwargs):
+    def request(method, url, **kwargs):
         assert url == 'https://example.org/teams/myteam/artifacts'
+        assert method == 'GET'
         return response
 
     runner = CliRunner()
     monkeypatch.setattr('zign.api.get_token', MagicMock(return_value='tok123'))
     monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
-    monkeypatch.setattr('pierone.api.session.get', get)
+    monkeypatch.setattr('pierone.api.session.request', request)
     with runner.isolated_filesystem():
         result = runner.invoke(cli, ['artifacts', 'myteam', '--url', 'example.org'], catch_exceptions=False)
         assert '1.0' in result.output
