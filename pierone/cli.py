@@ -340,7 +340,7 @@ def mark_trusted(config, team, artifact, tag, url, output):
 
         valid = row.get('valid')
 
-        if valid is not True:
+        if not valid:
             raise click.ClickException('SCM source information is not valid, cannot mark as trusted.')
         else:
             if click.confirm('Do you want to mark this image as trusted?'):
