@@ -1,3 +1,4 @@
+import base64
 import codecs
 import collections
 import datetime
@@ -82,6 +83,13 @@ def docker_login_with_token(url, access_token):
             json.dump(dockercfg, fd)
 
 
+def iid_auth():
+    '''Return AWS instance identity document encoded as a Pier One atuh token'''
+    pkcs7 = request('http://169.254.169.254', '/latest/dynamic/instance-identity/pkcs7')
+    basic_auth = 'instance-identity-document:{}'.format(pkcs7.text).encode('utf-8')
+    return base64.b64encode(basic_auth).decode('utf-8')
+
+
 def docker_login_with_iid(url):
     '''Configure docker with IID auth'''
 
@@ -91,11 +99,9 @@ def docker_login_with_iid(url):
             dockercfg = json.load(fd)
     except Exception as e:
         dockercfg = {}
-    pkcs7 = request('http://169.254.169.254', '/latest/dynamic/instance-identity/pkcs7')
-    basic_auth = codecs.encode('instance-identity-document:{}'.format(pkcs7.text).encode('utf-8'), 'base64').strip()
     if 'auths' not in dockercfg:
         dockercfg['auths'] = {}
-    dockercfg['auths'][url] = {'auth': basic_auth.decode('utf-8'),
+    dockercfg['auths'][url] = {'auth': iid_auth(),
                                'email': 'no-mail-required@example.org'}
     with Action('Storing Docker client configuration in {}..'.format(path)):
         os.makedirs(os.path.dirname(path), exist_ok=True)
