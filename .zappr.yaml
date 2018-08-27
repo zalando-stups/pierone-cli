@@ -1,12 +1,10 @@
+# Every PR needs two approvals from Zalando employees.
 approvals:
-  minimum: 2
-  # approval = comment that matches this regex
-  pattern: "^(:\\+1:|👍)"
-  # note that `from` is by default empty,
-  # accepting any matching comment as approval
-  from:
-    # commenter must be either one of:
-    orgs:
-      - zalando
+  groups:
+    zalando:
+      minimum: 2
+      from:
+        orgs:
+          # Only "zalando" allowed here!
+          - zalando
 X-Zalando-Team: "automata"
-X-Zalando-Type: code
