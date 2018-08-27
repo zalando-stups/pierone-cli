@@ -9,3 +9,4 @@ approvals:
     orgs:
       - zalando
 X-Zalando-Team: "automata"
+X-Zalando-Type: code
