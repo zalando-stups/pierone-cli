@@ -7,9 +7,5 @@ approvals:
   from:
     # commenter must be either one of:
     orgs:
-      # a public zalando org member
-      # (any org in here counts)
-      - zalando-stups
-    # OR a collaborator of the repo
-    collaborators: true
+      - zalando
 X-Zalando-Team: "automata"
