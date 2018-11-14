@@ -222,7 +222,7 @@ def tags(config, team: str, artifact, url, output, limit):
 @output_option
 @click.pass_obj
 def cves(config, team, artifact, tag, url, output):
-    """Prints the deprecation message"""
+    """DEPRECATED"""
     print('\x1b[1;33m!! THIS FUNCTIONALITY IS DEPRECATED !!\x1b[0m', file=sys.stderr)
 
 
@@ -231,13 +231,35 @@ def cves(config, team, artifact, tag, url, output):
 @click.argument('artifact')
 @click.argument('tag')
 @url_option
-@output_option
 @click.pass_obj
-def describe(config, team, artifact, tag, url, output):
-    """Prints the deprecation message"""
-    # TODO api call
-    # TODO output
-    print("Describing {}/{}:{}".format(team, artifact, tag))
+def describe(config, team, artifact, tag, url):
+    """Describe docker image."""
+    # TODO api call to describe endpoint
+    set_pierone_url(config, url)
+
+    click.echo("Describing '{}/{}/{}:{}'.\n".format(config.get("url"), team, artifact, tag))
+
+    token = get_token()
+
+    response = request(
+        config.get("url"),
+        "/teams/{}/artifacts/{}/tags/{}/scm-source".format(team, artifact, tag),
+        token,
+        not_found_is_none=True
+    )
+    if response:
+        scm_source = response.json()
+        max_key_size = max((len(k) for k in scm_source))
+        max_value_size = max((len(str(v)) for v in scm_source.values()))
+        line_size = max_value_size + max_key_size + 3
+        # len("SCM Source") == 10
+        click.secho("SCM Source" + (line_size - 10) * " ", bold=True, fg='black', bg='white')
+        for key, value in scm_source.items():
+            if key == "url":
+                key = "URL"
+            else:
+                key = key.capitalize()
+            click.echo("{key:<{size}} ┃ {value}".format(size=max_key_size, key=key, value=value))
 
 
 @cli.command()
