@@ -140,18 +140,6 @@ def get_tags(url, team, art, access_token):
     return r.json()
 
 
-def get_clair_features(clair_details_url, access_token):
-    if not clair_details_url:
-        return []
-
-    r = request(clair_details_url, '?vulnerabilities&features', access_token, True)
-    if r is None:
-        # empty list of tags (layer does not exist)
-        return []
-
-    return r.json()['Layer'].get('Features', [])
-
-
 @cli.command()
 @click.argument('team', callback=validate_team)
 @url_option
@@ -234,8 +222,8 @@ def tags(config, team: str, artifact, url, output, limit):
 @output_option
 @click.pass_obj
 def cves(config, team, artifact, tag, url, output):
-    '''List all CVE's found by Clair service for a specific artifact tag'''
-    print('\x1b[1;33m' + '!! THIS FUNCTIONALITY IS DEPRECATED !!' + '\x1b[0m', file=sys.stderr)
+    """Prints the deprecation message"""
+    print('\x1b[1;33m!! THIS FUNCTIONALITY IS DEPRECATED !!\x1b[0m', file=sys.stderr)
 
 
 @cli.command()
