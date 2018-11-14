@@ -215,10 +215,15 @@ def tags(config, team: str, artifact, url, output, limit):
 
     with OutputFormat(output):
         titles = {
-            'created_time': 'Created',
-            'created_by': 'By'
+            "created_time": "Created",
+            "created_by": "By",
+            "status_reason_summary": "Status Reason",
         }
-        print_table(['team', 'artifact', 'tag', 'created_time', 'created_by', 'trusted'], rows, titles=titles)
+        print_table(
+            ["team", "artifact", "tag", "created_time", "created_by", "trusted", "status", "status_reason_summary"],
+            rows,
+            titles=titles
+        )
 
 
 @cli.command()
