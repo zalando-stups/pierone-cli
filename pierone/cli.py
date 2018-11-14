@@ -229,6 +229,20 @@ def cves(config, team, artifact, tag, url, output):
 @cli.command()
 @click.argument('team', callback=validate_team)
 @click.argument('artifact')
+@click.argument('tag')
+@url_option
+@output_option
+@click.pass_obj
+def describe(config, team, artifact, tag, url, output):
+    """Prints the deprecation message"""
+    # TODO api call
+    # TODO output
+    print("Describing {}/{}:{}".format(team, artifact, tag))
+
+
+@cli.command()
+@click.argument('team', callback=validate_team)
+@click.argument('artifact')
 @url_option
 @output_option
 @click.pass_obj
