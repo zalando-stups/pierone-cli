@@ -11,6 +11,11 @@ import requests
 from clickclick import Action
 from zign.api import get_token
 
+KNOWN_USERS = {
+    "credprov-cdp-controller-proxy_pierone-token": "[CDP]",
+    "credprov-cdp-controller-proxy-credentials-cdp_proxy-token": "[CDP]"
+}
+
 adapter = requests.adapters.HTTPAdapter(pool_connections=10, pool_maxsize=10)
 session = requests.Session()
 session.mount('http://', adapter)
@@ -170,18 +175,30 @@ def get_latest_tag(image: DockerImage, token: str = None) -> bool:
 
 
 def parse_pierone_artifact_dict(original_payload_from_api, team, artifact) -> dict:
-    return {'team': team,
-            'artifact': artifact,
-            'tag': original_payload_from_api['name'],
-            'created_by': original_payload_from_api['created_by'],
-            'created_time': parse_time(original_payload_from_api['created']),
-            'severity_fix_available': parse_severity(
-                original_payload_from_api.get('severity_fix_available'),
-                original_payload_from_api.get('clair_id', False)),
-            'severity_no_fix_available': parse_severity(
-                original_payload_from_api.get('severity_no_fix_available'),
-                original_payload_from_api.get('clair_id', False)),
-            'trusted': original_payload_from_api.get('trusted')}
+    """
+    Enhance pierone artifact dict by:
+    - Adding defaults
+    - Adding team and artifact name
+    - Adding useful aliases
+    - Parsing times
+    - Shortening know robot user's name (e.g. CDP)
+    """
+    # The dict is pre-populated with defaults
+    parsed_dict = {
+        "status": "Not Processed",
+        "status_reason_summary": "Not Processed",
+        "trusted": None
+    }
+    parsed_dict.update(original_payload_from_api)
+    parsed_dict['team'] = team
+    parsed_dict['artifact'] = artifact
+    parsed_dict['tag'] = original_payload_from_api['name']
+    created_by = original_payload_from_api['created_by']
+    parsed_dict['created_by'] = KNOWN_USERS.get(created_by, created_by)
+    parsed_dict['created_time'] = parse_time(original_payload_from_api['created'])
+    status_received_at = original_payload_from_api.get('status_received_at')
+    parsed_dict['status_time'] = parse_time(status_received_at) if status_received_at else 'N/A'
+    return parsed_dict
 
 
 def parse_time(s: str) -> float:

@@ -2,6 +2,7 @@ import os
 import re
 import tarfile
 import tempfile
+import collections
 
 import click
 import pierone
@@ -206,9 +207,10 @@ def tags(config, team: str, artifact, url, output, limit):
             "created_time": "Created",
             "created_by": "By",
             "status_reason_summary": "Status Reason",
+            "status_time": "Status Date"
         }
         print_table(
-            ["team", "artifact", "tag", "created_time", "created_by", "trusted", "status", "status_reason_summary"],
+            ["team", "artifact", "tag", "created_time", "created_by", "trusted", "status", "status_reason_summary", "status_time"],
             rows,
             titles=titles
         )
@@ -237,8 +239,8 @@ def describe(config, team, artifact, tag, url):
     # TODO api call to describe endpoint
     set_pierone_url(config, url)
 
-    click.echo("Describing '{}/{}/{}:{}'.\n".format(config.get("url"), team, artifact, tag))
-
+    full_name = "{}/{}/{}:{}".format(config.get("url"), team, artifact, tag)
+    details = collections.OrderedDict()
     token = get_token()
 
     response = request(
@@ -247,19 +249,32 @@ def describe(config, team, artifact, tag, url):
         token,
         not_found_is_none=True
     )
-    if response:
-        scm_source = response.json()
-        max_key_size = max((len(k) for k in scm_source))
-        max_value_size = max((len(str(v)) for v in scm_source.values()))
-        line_size = max_value_size + max_key_size + 3
-        # len("SCM Source") == 10
-        click.secho("SCM Source" + (line_size - 10) * " ", bold=True, fg='black', bg='white')
-        for key, value in scm_source.items():
-            if key == "url":
-                key = "URL"
-            else:
-                key = key.capitalize()
-            click.echo("{key:<{size}} ┃ {value}".format(size=max_key_size, key=key, value=value))
+    # TODO check if image exists
+    scm_source = response.json() if response else {}
+    details["Team"] = team
+    details["Artifact"] = artifact
+    details["Repository"] = scm_source.get('url')
+    details["Commit Hash"] = scm_source.get('revision')
+    details["Commit Time"] = scm_source.get('created')
+    details["Author"] = scm_source.get('author')
+    details["Repository Status"] = scm_source.get('status')
+    details["Valid SCM Source"] = scm_source.get('valid')
+    # TODO: FROM tags
+    details["Created By"] = "TODO"
+    # TODO: creation date
+    # TODO: created by
+    # TODO: status
+    # TODO: status date
+    # TODO: status reason
+    # TODO: status_long reason
+
+    max_key_size = max((len(k) for k in details))
+    max_value_size = max((len(str(v)) for v in details.values()))
+    line_size = max_value_size + max_key_size + 3
+    padding_size = max((line_size - len(full_name), 1))
+    click.secho(full_name + padding_size * " ", bold=True, fg='black', bg='white')
+    for key, value in details.items():
+        click.echo("{key:<{size}} ┃ {value}".format(size=max_key_size, key=key, value=value))
 
 
 @cli.command()
