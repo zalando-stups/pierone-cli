@@ -65,7 +65,7 @@ def set_pierone_url(config: dict, url: str) -> None:
 
         try:
             requests.get(url, timeout=5)
-        except Exception as e:
+        except Exception:
             error('Could not reach {}'.format(url))
             url = None
 
@@ -210,7 +210,17 @@ def tags(config, team: str, artifact, url, output, limit):
             "status_time": "Status Date"
         }
         print_table(
-            ["team", "artifact", "tag", "created_time", "created_by", "trusted", "status", "status_reason_summary", "status_time"],
+            [
+                "team",
+                "artifact",
+                "tag",
+                "created_time",
+                "created_by",
+                "trusted",
+                "status",
+                "status_reason_summary",
+                "status_time",
+            ],
             rows,
             titles=titles
         )

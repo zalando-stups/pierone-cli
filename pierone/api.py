@@ -4,7 +4,6 @@ import collections
 import datetime
 import json
 import os
-import re
 import time
 
 import requests
@@ -72,7 +71,7 @@ def docker_login_with_token(url, access_token):
     try:
         with open(path) as fd:
             dockercfg = json.load(fd)
-    except Exception as e:
+    except Exception:
         dockercfg = {}
     basic_auth = codecs.encode('oauth2:{}'.format(access_token).encode('utf-8'), 'base64').strip().decode('utf-8')
     if 'auths' not in dockercfg:
@@ -102,7 +101,7 @@ def docker_login_with_iid(url):
     try:
         with open(path) as fd:
             dockercfg = json.load(fd)
-    except Exception as e:
+    except Exception:
         dockercfg = {}
     if 'auths' not in dockercfg:
         dockercfg['auths'] = {}
@@ -217,16 +216,3 @@ def parse_time(s: str) -> float:
     except Exception as e:
         print(e)
         return None
-
-
-def parse_severity(value, clair_id_exists) -> str:
-    '''Parse severity values to displayable values'''
-    if value is None and clair_id_exists:
-        return 'NOT_PROCESSED_YET'
-    elif value is None:
-        return 'TOO_OLD'
-
-    value = re.sub('^clair:', '', value)
-    value = re.sub('(?P<upper_letter>(?<=[a-z])[A-Z])', '_\g<upper_letter>', value)
-
-    return value.upper()
