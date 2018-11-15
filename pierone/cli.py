@@ -207,7 +207,6 @@ def tags(config, team: str, artifact, url, output, limit):
             "created_time": "Created",
             "created_by": "By",
             "status_reason_summary": "Status Reason",
-            "status_time": "Status Date"
         }
         print_table(
             [
@@ -219,7 +218,6 @@ def tags(config, team: str, artifact, url, output, limit):
                 "trusted",
                 "status",
                 "status_reason_summary",
-                "status_time",
             ],
             rows,
             titles=titles
@@ -249,8 +247,7 @@ def describe(config, team, artifact, tag, url):
     # TODO api call to describe endpoint
     set_pierone_url(config, url)
 
-    full_name = "{}/{}/{}:{}".format(config.get("url"), team, artifact, tag)
-    details = collections.OrderedDict()
+    #full_name = "{}/{}/{}:{}".format(config.get("url"), team, artifact, tag)
     token = get_token()
 
     response = request(
@@ -261,30 +258,44 @@ def describe(config, team, artifact, tag, url):
     )
     # TODO check if image exists
     scm_source = response.json() if response else {}
-    details["Team"] = team
-    details["Artifact"] = artifact
-    details["Repository"] = scm_source.get('url')
-    details["Commit Hash"] = scm_source.get('revision')
-    details["Commit Time"] = scm_source.get('created')
-    details["Author"] = scm_source.get('author')
-    details["Repository Status"] = scm_source.get('status')
-    details["Valid SCM Source"] = scm_source.get('valid')
     # TODO: FROM tags
-    details["Created By"] = "TODO"
-    # TODO: creation date
-    # TODO: created by
-    # TODO: status
-    # TODO: status date
-    # TODO: status reason
     # TODO: status_long reason
+    STATUS = "production_ready"
+    SUMMARY = "All checks passed. Great Job"
+    DETAILS = """# Docker Image Compliance Checker Report
+Gandalf carefully checked the docker image
+and came to the conclusion that it was
+created in a compliant way.
 
-    max_key_size = max((len(k) for k in details))
-    max_value_size = max((len(str(v)) for v in details.values()))
-    line_size = max_value_size + max_key_size + 3
-    padding_size = max((line_size - len(full_name), 1))
-    click.secho(full_name + padding_size * " ", bold=True, fg='black', bg='white')
-    for key, value in details.items():
-        click.echo("{key:<{size}} ┃ {value}".format(size=max_key_size, key=key, value=value))
+## Performed Checks
+- [x] Foo
+- [x] Bar
+- [x] Hello
+- [x] World"""
+
+    max_value_size = 80
+    line_size = max_value_size + 18 + 3
+    padding_size = max((line_size - len("General Information"), 1))
+    click.secho("General Information".ljust(line_size), fg='black', bg='white')
+    click.echo("Team             ┃ {}".format(team))
+    click.echo("Artifact         ┃ {}".format(artifact))
+    click.echo("Author           ┃ (Probably) [CDP]")  # TODO
+    click.echo("Created in       ┃ 1970-01-01T01:02:03Z") # TODO
+    click.secho("Commit Information".ljust(line_size), fg='black', bg='white')
+    click.echo("Repository       ┃ {}".format(scm_source.get('url')))
+    click.echo("Hash             ┃ {}".format(scm_source.get('revision')))
+    click.echo("Time             ┃ {}".format(scm_source.get('created')))
+    click.echo("Author           ┃ {}".format(scm_source.get('author')))
+    click.echo("Status           ┃ {}".format(scm_source.get('status')))
+    click.secho("Compliance Information".ljust(line_size), fg='black', bg='white')
+    click.echo("Valid SCM Source ┃ {}".format(scm_source.get('valid')))
+    click.echo("Status           ┃ {}".format(STATUS.replace('_', ' ').title())) # TODO
+    click.echo("Status Date      ┃ 1970-01-01T01:02:03Z") # TODO
+    click.echo("Status Reason    ┃ {}".format(SUMMARY)) # TODO
+    detail_lines = DETAILS.splitlines() # TODO
+    click.echo("Details          ┃ {}".format(detail_lines[0]))
+    for line in detail_lines[1:]:
+        click.echo("                 ┃ {}".format(line))
 
 
 @cli.command()
