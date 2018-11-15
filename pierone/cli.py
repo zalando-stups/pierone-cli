@@ -17,6 +17,7 @@ from requests import RequestException
 from .api import (DockerImage, Unauthorized, docker_login, get_image_tags,
                   get_latest_tag, parse_time, request)
 from .exceptions import PieroneException
+from .markdown import markdown_2_cli
 
 KEYRING_KEY = 'pierone'
 
@@ -292,9 +293,9 @@ created in a compliant way.
     click.echo("Status           ┃ {}".format(STATUS.replace('_', ' ').title())) # TODO
     click.echo("Status Date      ┃ 1970-01-01T01:02:03Z") # TODO
     click.echo("Status Reason    ┃ {}".format(SUMMARY)) # TODO
-    detail_lines = DETAILS.splitlines() # TODO
-    click.echo("Details          ┃ {}".format(detail_lines[0]))
-    for line in detail_lines[1:]:
+    details_ansi = markdown_2_cli(DETAILS)  # TODO real details
+    click.echo("Details          ┃ {}".format(details_ansi[0]))
+    for line in details_ansi[1:]:
         click.echo("                 ┃ {}".format(line))
 
 
