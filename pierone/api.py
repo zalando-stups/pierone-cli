@@ -159,6 +159,17 @@ def get_image_tags(image: DockerImage, token: str = None) -> list:
             for entry in response.json()]
 
 
+def get_tag_info(image: DockerImage, token: str = None) -> list:
+    """
+    Gets detailed tag information
+    """
+    url = "https://{}".format(image.registry)
+    path = "/teams/{}/artifacts/{}/tags/{}".format(image.team, image.artifact, image.tag)
+
+    response = request(url, path, token, False)
+    return response.json()
+
+
 def get_latest_tag(image: DockerImage, token: str = None) -> bool:
     url = 'https://{}'.format(image.registry)
     path = '/teams/{team}/artifacts/{artifact}/tags'.format(team=image.team, artifact=image.artifact)

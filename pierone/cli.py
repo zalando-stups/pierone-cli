@@ -15,7 +15,7 @@ from clickclick import (AliasedGroup, OutputFormat, UrlType, error,
 from requests import RequestException
 
 from .api import (DockerImage, Unauthorized, docker_login, get_image_tags,
-                  get_latest_tag, parse_time, request)
+                  get_latest_tag, parse_time, request, get_tag_info)
 from .exceptions import PieroneException
 from .markdown import markdown_2_cli
 
@@ -246,24 +246,22 @@ def cves(config, team, artifact, tag, url, output):
 def describe(config, team, artifact, tag, url):
     """Describe docker image."""
     set_pierone_url(config, url)
+    pierone_url = config.get('url')
+    registry = pierone_url[8:] if pierone_url.startswith('https://') else pierone_url
+
+    image = DockerImage(registry=registry, team=team, artifact=artifact, tag=tag)
 
     token = get_token()
-    tag_url = "/teams/{}/artifacts/{}/tags/{}".format(team, artifact, tag)
-    pierone_url = config.get("url")
     try:
-        details_request = request(
-            pierone_url,
-            tag_url,
-            token,
-        )
+        tag_info = get_tag_info(image, token)
     except requests.HTTPError:
         full_name = "{}/{}/{}:{}".format(pierone_url.replace("https://", ""), team, artifact, tag)
         fatal_error("{!r} not found".format(full_name))
 
-    tag_info = details_request.json() if details_request else {}
     status = tag_info.get("status") or "Not Processed"
     status_details = markdown_2_cli(tag_info.get("status_reason_details") or "")
 
+    tag_url = "/teams/{}/artifacts/{}/tags/{}".format(image.team, image.artifact, image.tag)
     response = request(
         config.get("url"),
         "{}/scm-source".format(tag_url),
@@ -290,6 +288,7 @@ def describe(config, team, artifact, tag, url):
         click.echo("Valid SCM Source ┃ {valid}".format_map(scm_source))
     else:
         click.secho("Compliance Information".ljust(line_size), fg='black', bg='white')
+        click.echo("Valid SCM Source ┃ No SCM Source")
     click.echo("Status           ┃ {}".format(status.replace('_', ' ').title()))
     click.echo("Status Date      ┃ {status_received_at}".format_map(tag_info))
     click.echo("Status Reason    ┃ {status_reason_summary}".format_map(tag_info))
