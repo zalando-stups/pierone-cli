@@ -4,6 +4,7 @@ Minimal Markdown to ANSI converter to display Compliance reports
 
 import click
 
+
 def markdown_2_cli(original: str) -> list:
     """
     Gets a markdown string and returns a list of formatted lines using ANSI styles and unicode.
