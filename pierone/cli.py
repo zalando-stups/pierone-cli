@@ -3,7 +3,6 @@ import re
 import shutil
 import tarfile
 import tempfile
-import collections
 
 import click
 import pierone
@@ -285,7 +284,6 @@ created in a compliant way.
     scm_source = response.json() if response else {}
 
     line_size, _ = shutil.get_terminal_size(100)
-    padding_size = max((line_size - len("General Information"), 1))
     click.secho("General Information".ljust(line_size), fg='black', bg='white')
     click.echo("Team             ┃ {}".format(team))
     click.echo("Artifact         ┃ {}".format(artifact))
