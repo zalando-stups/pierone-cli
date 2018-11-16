@@ -249,16 +249,6 @@ def describe(config, team, artifact, tag, url):
 
     token = get_token()
     tag_url = "/teams/{}/artifacts/{}/tags/{}".format(team, artifact, tag)
-    DETAILS = """# Docker Image Compliance Checker Report
-Gandalf carefully checked the docker image
-and came to the conclusion that it was
-created in a compliant way.
-
-## Performed Checks
-- [x] Foo
-- [x] Bar
-- [x] Hello
-- [ ] World"""
     pierone_url = config.get("url")
     try:
         details_request = request(
@@ -272,8 +262,7 @@ created in a compliant way.
 
     tag_info = details_request.json() if details_request else {}
     status = tag_info.get("status") or "Not Processed"
-    # TODO replace  debug details with ""
-    status_details = markdown_2_cli(tag_info.get("status_reason_details") or DETAILS)
+    status_details = markdown_2_cli(tag_info.get("status_reason_details") or "")
 
     response = request(
         config.get("url"),
@@ -281,7 +270,7 @@ created in a compliant way.
         token,
         not_found_is_none=True
     )
-    scm_source = response.json() if response else {}
+    scm_source = response.json() if response else None
 
     line_size, _ = shutil.get_terminal_size(100)
     click.secho("General Information".ljust(line_size), fg='black', bg='white')
@@ -290,14 +279,17 @@ created in a compliant way.
     click.echo("Tag              ┃ {}".format(tag))
     click.echo("Author           ┃ {created_by}".format_map(tag_info))  # TODO map author
     click.echo("Created in       ┃ {created}".format_map(tag_info))
-    click.secho("Commit Information".ljust(line_size), fg='black', bg='white')
-    click.echo("Repository       ┃ {url}".format_map(scm_source))
-    click.echo("Hash             ┃ {revision}".format_map(scm_source))
-    click.echo("Time             ┃ {created}".format_map(scm_source))
-    click.echo("Author           ┃ {author}".format_map(scm_source))
-    click.echo("Status           ┃ {status}".format_map(scm_source))
-    click.secho("Compliance Information".ljust(line_size), fg='black', bg='white')
-    click.echo("Valid SCM Source ┃ {valid}".format_map(scm_source))
+    if scm_source:
+        click.secho("Commit Information".ljust(line_size), fg='black', bg='white')
+        click.echo("Repository       ┃ {url}".format_map(scm_source))
+        click.echo("Hash             ┃ {revision}".format_map(scm_source))
+        click.echo("Time             ┃ {created}".format_map(scm_source))
+        click.echo("Author           ┃ {author}".format_map(scm_source))
+        click.echo("Status           ┃ {status}".format_map(scm_source))
+        click.secho("Compliance Information".ljust(line_size), fg='black', bg='white')
+        click.echo("Valid SCM Source ┃ {valid}".format_map(scm_source))
+    else:
+        click.secho("Compliance Information".ljust(line_size), fg='black', bg='white')
     click.echo("Status           ┃ {}".format(status.replace('_', ' ').title()))
     click.echo("Status Date      ┃ {status_received_at}".format_map(tag_info))
     click.echo("Status Reason    ┃ {status_reason_summary}".format_map(tag_info))
