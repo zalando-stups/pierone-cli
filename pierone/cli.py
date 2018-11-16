@@ -1,5 +1,6 @@
 import os
 import re
+import shutil
 import tarfile
 import tempfile
 import collections
@@ -259,15 +260,19 @@ created in a compliant way.
 - [x] Bar
 - [x] Hello
 - [ ] World"""
-    details_request = request(
-        config.get("url"),
-        tag_url,
-        token,
-        not_found_is_none=True # TODO handle error if image not found
-    )
+    pierone_url = config.get("url")
+    try:
+        details_request = request(
+            pierone_url,
+            tag_url,
+            token,
+        )
+    except requests.HTTPError:
+        full_name = "{}/{}/{}:{}".format(pierone_url.replace("https://", ""), team, artifact, tag)
+        fatal_error("{!r} not found".format(full_name))
 
     tag_info = details_request.json() if details_request else {}
-    status = tag_info.get("status") or "Not Processed"  # TODO add default
+    status = tag_info.get("status") or "Not Processed"
     # TODO replace  debug details with ""
     status_details = markdown_2_cli(tag_info.get("status_reason_details") or DETAILS)
 
@@ -277,12 +282,9 @@ created in a compliant way.
         token,
         not_found_is_none=True
     )
-    # TODO check if image exists
     scm_source = response.json() if response else {}
 
-
-    max_value_size = 80
-    line_size = max_value_size + 18 + 3
+    line_size, _ = shutil.get_terminal_size(100)
     padding_size = max((line_size - len("General Information"), 1))
     click.secho("General Information".ljust(line_size), fg='black', bg='white')
     click.echo("Team             ┃ {}".format(team))
