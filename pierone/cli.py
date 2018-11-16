@@ -245,24 +245,10 @@ def cves(config, team, artifact, tag, url, output):
 @click.pass_obj
 def describe(config, team, artifact, tag, url):
     """Describe docker image."""
-    # TODO api call to describe endpoint
     set_pierone_url(config, url)
 
-    #full_name = "{}/{}/{}:{}".format(config.get("url"), team, artifact, tag)
     token = get_token()
-
-    response = request(
-        config.get("url"),
-        "/teams/{}/artifacts/{}/tags/{}/scm-source".format(team, artifact, tag),
-        token,
-        not_found_is_none=True
-    )
-    # TODO check if image exists
-    scm_source = response.json() if response else {}
-    # TODO: FROM tags
-    # TODO: status_long reason
-    STATUS = "production_ready"
-    SUMMARY = "All checks passed. Great Job"
+    tag_url = "/teams/{}/artifacts/{}/tags/{}".format(team, artifact, tag)
     DETAILS = """# Docker Image Compliance Checker Report
 Gandalf carefully checked the docker image
 and came to the conclusion that it was
@@ -272,7 +258,28 @@ created in a compliant way.
 - [x] Foo
 - [x] Bar
 - [x] Hello
-- [x] World"""
+- [ ] World"""
+    details_request = request(
+        config.get("url"),
+        tag_url,
+        token,
+        not_found_is_none=True # TODO handle error if image not found
+    )
+
+    tag_info = details_request.json() if details_request else {}
+    status = tag_info.get("status") or "Not Processed"  # TODO add default
+    # TODO replace  debug details with ""
+    status_details = markdown_2_cli(tag_info.get("status_reason_details") or DETAILS)
+
+    response = request(
+        config.get("url"),
+        "{}/scm-source".format(tag_url),
+        token,
+        not_found_is_none=True
+    )
+    # TODO check if image exists
+    scm_source = response.json() if response else {}
+
 
     max_value_size = 80
     line_size = max_value_size + 18 + 3
@@ -280,22 +287,22 @@ created in a compliant way.
     click.secho("General Information".ljust(line_size), fg='black', bg='white')
     click.echo("Team             ┃ {}".format(team))
     click.echo("Artifact         ┃ {}".format(artifact))
-    click.echo("Author           ┃ (Probably) [CDP]")  # TODO
-    click.echo("Created in       ┃ 1970-01-01T01:02:03Z") # TODO
+    click.echo("Tag              ┃ {}".format(tag))
+    click.echo("Author           ┃ {created_by}".format_map(tag_info))  # TODO map author
+    click.echo("Created in       ┃ {created}".format_map(tag_info))
     click.secho("Commit Information".ljust(line_size), fg='black', bg='white')
-    click.echo("Repository       ┃ {}".format(scm_source.get('url')))
-    click.echo("Hash             ┃ {}".format(scm_source.get('revision')))
-    click.echo("Time             ┃ {}".format(scm_source.get('created')))
-    click.echo("Author           ┃ {}".format(scm_source.get('author')))
-    click.echo("Status           ┃ {}".format(scm_source.get('status')))
+    click.echo("Repository       ┃ {url}".format_map(scm_source))
+    click.echo("Hash             ┃ {revision}".format_map(scm_source))
+    click.echo("Time             ┃ {created}".format_map(scm_source))
+    click.echo("Author           ┃ {author}".format_map(scm_source))
+    click.echo("Status           ┃ {status}".format_map(scm_source))
     click.secho("Compliance Information".ljust(line_size), fg='black', bg='white')
-    click.echo("Valid SCM Source ┃ {}".format(scm_source.get('valid')))
-    click.echo("Status           ┃ {}".format(STATUS.replace('_', ' ').title())) # TODO
-    click.echo("Status Date      ┃ 1970-01-01T01:02:03Z") # TODO
-    click.echo("Status Reason    ┃ {}".format(SUMMARY)) # TODO
-    details_ansi = markdown_2_cli(DETAILS)  # TODO real details
-    click.echo("Details          ┃ {}".format(details_ansi[0]))
-    for line in details_ansi[1:]:
+    click.echo("Valid SCM Source ┃ {valid}".format_map(scm_source))
+    click.echo("Status           ┃ {}".format(status.replace('_', ' ').title()))
+    click.echo("Status Date      ┃ {status_received_at}".format_map(tag_info))
+    click.echo("Status Reason    ┃ {status_reason_summary}".format_map(tag_info))
+    click.echo("Status Details   ┃ {}".format(status_details.pop(0) if status_details else ""))
+    for line in status_details:
         click.echo("                 ┃ {}".format(line))
 
 
