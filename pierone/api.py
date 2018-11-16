@@ -12,7 +12,7 @@ from zign.api import get_token
 
 KNOWN_USERS = {
     "credprov-cdp-controller-proxy_pierone-token": "[CDP]",
-    "credprov-cdp-controller-proxy-credentials-cdp_proxy-token": "[CDP]"
+    "credprov-cdp-controller-proxy-credentials-cdp_proxy-token": "[CDP]",
 }
 
 adapter = requests.adapters.HTTPAdapter(pool_connections=10, pool_maxsize=10)
@@ -167,7 +167,10 @@ def get_tag_info(image: DockerImage, token: str = None) -> list:
     path = "/teams/{}/artifacts/{}/tags/{}".format(image.team, image.artifact, image.tag)
 
     response = request(url, path, token, False)
-    return response.json()
+    tag_info = response.json()
+    created_by = tag_info['created_by']
+    tag_info['created_by'] = KNOWN_USERS.get(created_by, created_by)
+    return tag_info
 
 
 def get_latest_tag(image: DockerImage, token: str = None) -> bool:
