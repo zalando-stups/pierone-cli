@@ -1,5 +1,6 @@
 import os
 import re
+import shutil
 import tarfile
 import tempfile
 
@@ -14,8 +15,9 @@ from clickclick import (AliasedGroup, OutputFormat, UrlType, error,
 from requests import RequestException
 
 from .api import (DockerImage, Unauthorized, docker_login, get_image_tags,
-                  get_latest_tag, parse_time, request)
+                  get_latest_tag, parse_time, request, get_tag_info)
 from .exceptions import PieroneException
+from .markdown import markdown_2_cli
 
 KEYRING_KEY = 'pierone'
 
@@ -64,7 +66,7 @@ def set_pierone_url(config: dict, url: str) -> None:
 
         try:
             requests.get(url, timeout=5)
-        except Exception as e:
+        except Exception:
             error('Could not reach {}'.format(url))
             url = None
 
@@ -140,18 +142,6 @@ def get_tags(url, team, art, access_token):
     return r.json()
 
 
-def get_clair_features(clair_details_url, access_token):
-    if not clair_details_url:
-        return []
-
-    r = request(clair_details_url, '?vulnerabilities&features', access_token, True)
-    if r is None:
-        # empty list of tags (layer does not exist)
-        return []
-
-    return r.json()['Layer'].get('Features', [])
-
-
 @cli.command()
 @click.argument('team', callback=validate_team)
 @url_option
@@ -215,10 +205,24 @@ def tags(config, team: str, artifact, url, output, limit):
 
     with OutputFormat(output):
         titles = {
-            'created_time': 'Created',
-            'created_by': 'By'
+            "created_time": "Created",
+            "created_by": "By",
+            "status_reason_summary": "Status Reason",
         }
-        print_table(['team', 'artifact', 'tag', 'created_time', 'created_by', 'trusted'], rows, titles=titles)
+        print_table(
+            [
+                "team",
+                "artifact",
+                "tag",
+                "created_time",
+                "created_by",
+                "trusted",
+                "status",
+                "status_reason_summary",
+            ],
+            rows,
+            titles=titles
+        )
 
 
 @cli.command()
@@ -229,8 +233,68 @@ def tags(config, team: str, artifact, url, output, limit):
 @output_option
 @click.pass_obj
 def cves(config, team, artifact, tag, url, output):
-    '''List all CVE's found by Clair service for a specific artifact tag'''
-    print('\x1b[1;33m' + '!! THIS FUNCTIONALITY IS DEPRECATED !!' + '\x1b[0m', file=sys.stderr)
+    """DEPRECATED"""
+    print('\x1b[1;33m!! THIS FUNCTIONALITY IS DEPRECATED !!\x1b[0m', file=sys.stderr)
+
+
+@cli.command()
+@click.argument('team', callback=validate_team)
+@click.argument('artifact')
+@click.argument('tag')
+@url_option
+@click.pass_obj
+def describe(config, team, artifact, tag, url):
+    """Describe docker image."""
+    set_pierone_url(config, url)
+    pierone_url = config.get('url')
+    registry = pierone_url[8:] if pierone_url.startswith('https://') else pierone_url
+
+    image = DockerImage(registry=registry, team=team, artifact=artifact, tag=tag)
+
+    token = get_token()
+    try:
+        tag_info = get_tag_info(image, token)
+    except requests.HTTPError:
+        full_name = "{}/{}/{}:{}".format(pierone_url.replace("https://", ""), team, artifact, tag)
+        fatal_error("{!r} not found".format(full_name))
+
+    status = tag_info.get("status") or "Not Processed"
+    status_details = markdown_2_cli(tag_info.get("status_reason_details") or "")
+
+    tag_url = "/teams/{}/artifacts/{}/tags/{}".format(image.team, image.artifact, image.tag)
+    response = request(
+        config.get("url"),
+        "{}/scm-source".format(tag_url),
+        token,
+        not_found_is_none=True
+    )
+    scm_source = response.json() if response else None
+
+    line_size, _ = shutil.get_terminal_size(100)
+    click.secho("General Information".ljust(line_size), fg='black', bg='white')
+    click.echo("Team             ┃ {}".format(team))
+    click.echo("Artifact         ┃ {}".format(artifact))
+    click.echo("Tag              ┃ {}".format(tag))
+    click.echo("Author           ┃ {created_by}".format_map(tag_info))  # TODO map author
+    click.echo("Created in       ┃ {created}".format_map(tag_info))
+    if scm_source:
+        click.secho("Commit Information".ljust(line_size), fg='black', bg='white')
+        click.echo("Repository       ┃ {url}".format_map(scm_source))
+        click.echo("Hash             ┃ {revision}".format_map(scm_source))
+        click.echo("Time             ┃ {created}".format_map(scm_source))
+        click.echo("Author           ┃ {author}".format_map(scm_source))
+        click.echo("Status           ┃ {status}".format_map(scm_source))
+        click.secho("Compliance Information".ljust(line_size), fg='black', bg='white')
+        click.echo("Valid SCM Source ┃ {valid}".format_map(scm_source))
+    else:
+        click.secho("Compliance Information".ljust(line_size), fg='black', bg='white')
+        click.echo("Valid SCM Source ┃ No SCM Source")
+    click.echo("Status           ┃ {}".format(status.replace('_', ' ').title()))
+    click.echo("Status Date      ┃ {status_received_at}".format_map(tag_info))
+    click.echo("Status Reason    ┃ {status_reason_summary}".format_map(tag_info))
+    click.echo("Status Details   ┃ {}".format(status_details.pop(0) if status_details else ""))
+    for line in status_details:
+        click.echo("                 ┃ {}".format(line))
 
 
 @cli.command()

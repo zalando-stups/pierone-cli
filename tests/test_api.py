@@ -234,8 +234,7 @@ def test_get_image_tags(monkeypatch):
     assert tag['artifact'] == 'bar'
     assert tag['tag'] == '0.17'
     assert tag['created_by'] == 'foobar'
-    assert tag['severity_fix_available'] == 'TOO_OLD'
-    assert tag['severity_no_fix_available'] == 'TOO_OLD'
+
 
 
 def test_get_image_tag(monkeypatch):
@@ -256,8 +255,8 @@ def test_get_image_tag(monkeypatch):
     assert tag['artifact'] == 'bar'
     assert tag['tag'] == '0.22'
     assert tag['created_by'] == 'foobar'
-    assert tag['severity_fix_available'] == 'TOO_OLD'
-    assert tag['severity_no_fix_available'] == 'TOO_OLD'
+    assert tag['status'] == "Not Processed"
+
 
 
 def test_get_image_tag_that_does_not_exist(monkeypatch):
