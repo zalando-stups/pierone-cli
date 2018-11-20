@@ -19,6 +19,7 @@ from .api import (DockerImage, Unauthorized, docker_login, get_image_tags,
 from .exceptions import PieroneException
 from .ui import format_full_image_name, markdown_2_cli
 from .utils import get_registry
+from .validators import validate_incident_id, validate_team
 
 KEYRING_KEY = 'pierone'
 
@@ -29,15 +30,6 @@ output_option = click.option('-o', '--output', type=click.Choice(['text', 'json'
 
 url_option = click.option('--url', help='Pier One URL', metavar='URI')
 
-TEAM_PATTERN_STR = r'[a-z][a-z0-9-]+'
-TEAM_PATTERN = re.compile(r'^{}$'.format(TEAM_PATTERN_STR))
-
-
-def validate_team(ctx, param, value):
-    if not TEAM_PATTERN.match(value):
-        msg = 'Team ID must satisfy regular expression pattern "{}"'.format(TEAM_PATTERN_STR)
-        raise click.BadParameter(msg)
-    return value
 
 
 def print_version(ctx, param, value):
@@ -236,7 +228,7 @@ def cves(config, team, artifact, tag, url, output):
     print('\x1b[1;33m!! THIS FUNCTIONALITY IS DEPRECATED !!\x1b[0m', file=sys.stderr)
 
 @cli.command()
-@click.argument('incident')  # TODO validate incident ID with regex
+@click.argument('incident', callback=validate_incident_id)
 @click.argument('team', callback=validate_team)
 @click.argument('artifact')
 @click.argument('tag')
