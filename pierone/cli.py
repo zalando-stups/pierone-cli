@@ -236,6 +236,23 @@ def cves(config, team, artifact, tag, url, output):
     """DEPRECATED"""
     print('\x1b[1;33m!! THIS FUNCTIONALITY IS DEPRECATED !!\x1b[0m', file=sys.stderr)
 
+@cli.command()
+@click.argument('incident')  # TODO validate incident ID with regex
+@click.argument('team', callback=validate_team)
+@click.argument('artifact')
+@click.argument('tag')
+@url_option
+@click.pass_obj
+def mark_production_ready(config, incident, team, artifact, tag, url):
+    set_pierone_url(config, url)
+    pierone_url = config.get('url')
+    # TODO put this into a function
+    registry = pierone_url[8:] if pierone_url.startswith('https://') else pierone_url
+    # TODO put this into a function
+    image = click.style("{}/{}/{}:{}".format(registry, team, artifact, tag), underline=True)
+    print("🧙 Marking {} as `production_ready` due to incident {}.".format(image, incident))
+    # TODO actually mark as trusted
+
 
 @cli.command()
 @click.argument('team', callback=validate_team)
