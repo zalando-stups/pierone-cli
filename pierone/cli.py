@@ -17,7 +17,8 @@ from requests import RequestException
 from .api import (DockerImage, Unauthorized, docker_login, get_image_tags,
                   get_latest_tag, parse_time, request, get_tag_info)
 from .exceptions import PieroneException
-from .markdown import markdown_2_cli
+from .ui import format_full_image_name, markdown_2_cli
+from .utils import get_registry
 
 KEYRING_KEY = 'pierone'
 
@@ -181,9 +182,7 @@ def tags(config, team: str, artifact, url, output, limit):
                                    'we could not find any artifacts registered in Pierone! '
                                    'Please double check for spelling mistakes.')
 
-    registry = config.get('url')
-    if registry.startswith('https://'):
-        registry = registry[8:]
+    registry = get_registry(config.get('url'))
 
     slice_from = - limit
 
@@ -244,12 +243,12 @@ def cves(config, team, artifact, tag, url, output):
 @url_option
 @click.pass_obj
 def mark_production_ready(config, incident, team, artifact, tag, url):
+    """
+    Manually mark image as production ready.
+    """
     set_pierone_url(config, url)
     pierone_url = config.get('url')
-    # TODO put this into a function
-    registry = pierone_url[8:] if pierone_url.startswith('https://') else pierone_url
-    # TODO put this into a function
-    image = click.style("{}/{}/{}:{}".format(registry, team, artifact, tag), underline=True)
+    image = format_full_image_name(pierone_url, team, artifact, tag)
     print("🧙 Marking {} as `production_ready` due to incident {}.".format(image, incident))
     # TODO actually mark as trusted
 
@@ -263,8 +262,7 @@ def mark_production_ready(config, incident, team, artifact, tag, url):
 def describe(config, team, artifact, tag, url):
     """Describe docker image."""
     set_pierone_url(config, url)
-    pierone_url = config.get('url')
-    registry = pierone_url[8:] if pierone_url.startswith('https://') else pierone_url
+    registry = get_registry(config.get('url'))
 
     image = DockerImage(registry=registry, team=team, artifact=artifact, tag=tag)
 
@@ -272,11 +270,11 @@ def describe(config, team, artifact, tag, url):
     try:
         tag_info = get_tag_info(image, token)
     except requests.HTTPError:
-        full_name = "{}/{}/{}:{}".format(pierone_url.replace("https://", ""), team, artifact, tag)
+        full_name = "{}/{}/{}:{}".format(registry, team, artifact, tag)
         fatal_error("{!r} not found".format(full_name))
     status_details = markdown_2_cli(tag_info.get("checker_status_reason_details") or "")
 
-    tag_url = "/teams/{}/artifacts/{}/tags/{}".format(image.team, image.artifact, image.tag)
+    tag_url = "/teams/{}/artifacts/{}/tags/{}".format(team, artifact, tag)
     response = request(
         config.get("url"),
         "{}/scm-source".format(tag_url),
@@ -338,9 +336,7 @@ def latest(config, team, artifact, url, output):
     set_pierone_url(config, url)
     token = get_token()
 
-    registry = config.get('url')
-    if registry.startswith('https://'):
-        registry = registry[8:]
+    registry = get_registry(config.get('url'))
     image = DockerImage(registry=registry, team=team, artifact=artifact, tag=None)
 
     latest_tag = get_latest_tag(image, token)
