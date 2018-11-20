@@ -1,5 +1,4 @@
 import os
-import re
 import shutil
 import tarfile
 import tempfile
@@ -29,7 +28,6 @@ output_option = click.option('-o', '--output', type=click.Choice(['text', 'json'
                              help='Use alternative output format')
 
 url_option = click.option('--url', help='Pier One URL', metavar='URI')
-
 
 
 def print_version(ctx, param, value):
@@ -226,6 +224,7 @@ def tags(config, team: str, artifact, url, output, limit):
 def cves(config, team, artifact, tag, url, output):
     """DEPRECATED"""
     print('\x1b[1;33m!! THIS FUNCTIONALITY IS DEPRECATED !!\x1b[0m', file=sys.stderr)
+
 
 @cli.command()
 @click.argument('incident', callback=validate_incident_id)

@@ -5,6 +5,7 @@ Functions to display things nicely.
 import click
 from .utils import get_registry
 
+
 def format_full_image_name(url: str, team: str, artifact: str, tag: str) -> str:
     """
     Returns a formatted string with the full image name.
@@ -12,6 +13,7 @@ def format_full_image_name(url: str, team: str, artifact: str, tag: str) -> str:
     registry = get_registry(url)
     image = click.style("{}/{}/{}:{}".format(registry, team, artifact, tag), underline=True)
     return image
+
 
 def markdown_2_cli(original: str) -> list:
     """
