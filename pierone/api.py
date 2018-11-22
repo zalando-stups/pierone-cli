@@ -70,7 +70,9 @@ class PierOne:
         GETs things from Pier One.
         """
         url = self.url + path
-        return self.session.get(url, *args, **kwargs)
+        response = self.session.get(url, *args, **kwargs)
+        response.raise_for_status()
+        return response
 
     def get_tag_info(self, image: DockerImage) -> list:
         """
@@ -79,7 +81,6 @@ class PierOne:
         path = "/teams/{}/artifacts/{}/tags/{}".format(image.team, image.artifact, image.tag)
 
         response = self._get(path)
-        response.raise_for_status()
         tag_info = response.json()
         created_by = tag_info["created_by"]
         tag_info["created_by"] = KNOWN_USERS.get(created_by, created_by)
@@ -91,9 +92,8 @@ class PierOne:
         """
         path = "/teams/{team}/artifacts/{artifact}/tags".format(team=image.team, artifact=image.artifact)
 
-        response = self._get(path)
         try:
-            response.raise_for_status()
+            response = self._get(path)
         except requests.HTTPError:
             return None
         return [parse_pierone_artifact_dict(entry, image.team, image.artifact)
@@ -104,9 +104,8 @@ class PierOne:
         GETs ``image``s scm_source
         """
         path = "/teams/{}/artifacts/{}/tags/{}/scm-source".format(image.team, image.artifact, image.tag)
-        response = self._get(path)
         try:
-            response.raise_for_status()
+            response = self._get(path)
         except requests.HTTPError:
             return None
         return response.json()
@@ -116,11 +115,10 @@ class PierOne:
         GETs all ``teams``'s artifacts.
         """
         response = self._get('/teams/{}/artifacts'.format(team))
-        response.raise_for_status()
         return response.json()
 
     def mark_production_ready(self,):
-        pass
+        pass  # TODO don't forget to test
 
 
 # all the other paramaters are deprecated, but still here for compatibility
