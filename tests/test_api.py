@@ -4,8 +4,7 @@ from unittest.mock import MagicMock, ANY
 
 import yaml
 import pytest
-from pierone.api import (DockerImage, docker_login, get_image_tag, docker_login_with_iid,
-                         get_image_tags, get_latest_tag, image_exists)
+from pierone.api import (DockerImage, docker_login, docker_login_with_iid, PierOne, get_latest_tag, image_exists)
 
 import requests.exceptions
 
@@ -226,46 +225,13 @@ def test_get_image_tags(monkeypatch):
                                    'name': '0.17'}]
     monkeypatch.setattr('pierone.api.session.request', MagicMock(return_value=response))
     image = DockerImage(registry='registry', team='foo', artifact='bar', tag=None)
-
-    image_tags = get_image_tags(image)
+    api = PierOne('registry')
+    api.session.request = MagicMock(return_value=response)
+    # TODO mock get_token
+    image_tags = api.get_image_tags(image)
     tag = image_tags[0]
 
     assert tag['team'] == 'foo'
     assert tag['artifact'] == 'bar'
     assert tag['tag'] == '0.17'
     assert tag['created_by'] == 'foobar'
-
-
-
-def test_get_image_tag(monkeypatch):
-    response = MagicMock()
-    response.status_code = 200
-    response.json.return_value = [{'created': '2015-06-01T14:12:03.276+0000',
-                                   'created_by': 'foobar',
-                                   'name': '0.17'},
-                                  {'created': '2015-06-11T16:13:29.152+0000',
-                                   'created_by': 'foobar',
-                                   'name': '0.22'}]
-    monkeypatch.setattr('pierone.api.session.request', MagicMock(return_value=response))
-    image = DockerImage(registry='registry', team='foo', artifact='bar', tag='0.22')
-
-    tag = get_image_tag(image)
-
-    assert tag['team'] == 'foo'
-    assert tag['artifact'] == 'bar'
-    assert tag['tag'] == '0.22'
-    assert tag['created_by'] == 'foobar'
-    assert tag['status'] == "Not Processed"
-
-
-
-def test_get_image_tag_that_does_not_exist(monkeypatch):
-    response = MagicMock()
-    response.status_code = 200
-    response.json.return_value = [{'created': '2015-06-01T14:12:03.276+0000',
-                                   'created_by': 'foobar',
-                                   'name': '0.17'}]
-    monkeypatch.setattr('pierone.api.session.request', MagicMock(return_value=response))
-    image = DockerImage(registry='registry', team='foo', artifact='bar', tag='1.22')
-
-    assert get_image_tag(image) is None

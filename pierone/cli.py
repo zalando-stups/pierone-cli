@@ -13,8 +13,8 @@ from clickclick import (AliasedGroup, OutputFormat, UrlType, error,
                         fatal_error, print_table)
 from requests import RequestException
 
-from .api import (DockerImage, Unauthorized, docker_login, get_image_tags,
-                  get_latest_tag, parse_time, request, get_tag_info)
+from .api import (DockerImage, Unauthorized, PierOne, docker_login, get_latest_tag, parse_time,
+                  request)
 from .exceptions import PieroneException
 from .ui import format_full_image_name, markdown_2_cli
 from .utils import get_registry
@@ -158,21 +158,20 @@ def artifacts(config, team, url, output):
 @click.pass_obj
 def tags(config, team: str, artifact, url, output, limit):
     '''List all tags for a given team'''
-    set_pierone_url(config, url)
+    registry = set_pierone_url(config, url)
     token = get_token()
+    api = PierOne(registry)
 
     if limit is None:
         # show 20 rows if artifact was given, else show only 3
         limit = 20 if artifact else 3
 
     if not artifact:
-        artifact = get_artifacts(config.get('url'), team, token)
+        artifact = get_artifacts(registry, team, token)
         if not artifact:
             raise click.UsageError('The Team you are looking for does not exist or '
                                    'we could not find any artifacts registered in Pierone! '
                                    'Please double check for spelling mistakes.')
-
-    registry = get_registry(config.get('url'))
 
     slice_from = - limit
 
@@ -180,7 +179,7 @@ def tags(config, team: str, artifact, url, output, limit):
     for art in artifact:
         image = DockerImage(registry=registry, team=team, artifact=art, tag=None)
         try:
-            tags = get_image_tags(image, token)
+            tags = api.get_image_tags(image)
         except Unauthorized as e:
             raise click.ClickException(str(e))
         else:
@@ -252,27 +251,20 @@ def mark_production_ready(config, incident, team, artifact, tag, url):
 @click.pass_obj
 def describe(config, team, artifact, tag, url):
     """Describe docker image."""
-    set_pierone_url(config, url)
-    registry = get_registry(config.get('url'))
+    url = set_pierone_url(config, url)
+    registry = get_registry(url)
+    api = PierOne(url)
 
     image = DockerImage(registry=registry, team=team, artifact=artifact, tag=tag)
 
-    token = get_token()
     try:
-        tag_info = get_tag_info(image, token)
+        tag_info = api.get_tag_info(image)
     except requests.HTTPError:
         full_name = "{}/{}/{}:{}".format(registry, team, artifact, tag)
         fatal_error("{!r} not found".format(full_name))
     status_details = markdown_2_cli(tag_info.get("checker_status_reason_details") or "")
 
-    tag_url = "/teams/{}/artifacts/{}/tags/{}".format(team, artifact, tag)
-    response = request(
-        config.get("url"),
-        "{}/scm-source".format(tag_url),
-        token,
-        not_found_is_none=True
-    )
-    scm_source = response.json() if response else None
+    scm_source = api.get_scm_source(image)
 
     underscore_to_title = (lambda s: s.replace('_', ' ').title() if s else "Not Processed")
     effective_status = underscore_to_title(tag_info.get("status"))
@@ -346,10 +338,11 @@ def latest(config, team, artifact, url, output):
 @click.pass_obj
 def scm_source(config, team, artifact, tag, url, output):
     '''Show SCM source information such as GIT revision'''
-    set_pierone_url(config, url)
+    url = set_pierone_url(config, url)
+    api = PierOne(url)
     token = get_token()
 
-    tags = get_tags(config.get('url'), team, artifact, token)
+    tags = get_tags(url, team, artifact, token)
     if not tags:
         raise click.UsageError('Artifact or Team does not exist! '
                                'Please double check for spelling mistakes.')
@@ -359,12 +352,9 @@ def scm_source(config, team, artifact, tag, url, output):
 
     rows = []
     for t in tag:
-        r = request(config.get('url'), '/teams/{}/artifacts/{}/tags/{}/scm-source'.format(team, artifact, t),
-                    token, True)
-        if r is None:
-            row = {}
-        else:
-            row = r.json()
+        image = DockerImage(url, team, artifact, t)
+        scm_source = api.get_scm_source(image)
+        row = scm_source or {}
         row['tag'] = t
         matching_tag = [d for d in tags if d['name'] == t]
         row['created_by'] = ''.join([d['created_by'] for d in matching_tag])

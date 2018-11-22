@@ -57,6 +57,65 @@ class DockerImage(collections.namedtuple('DockerImage', 'registry team artifact 
         return '{}/{}/{}:{}'.format(*tuple(self))
 
 
+class PierOne:
+
+    def __init__(self, url: str):
+        self.url = url if url.startswith("https://") else "https://" + url
+        self.__access_token = get_token('pierone', ['uid'])
+        self.session = requests.Session()
+        self.session.headers['Authorization'] = 'Bearer {}'.format(self.__access_token)
+
+    def _get(self, path, *args, **kwargs) -> requests.Response:
+        """
+        GETs things from Pier One.
+        """
+        url = self.url + path
+        return self.session.get(url, *args, **kwargs)
+
+    def get_tag_info(self, image: DockerImage) -> list:
+        """
+        Gets detailed tag information
+        """
+        path = "/teams/{}/artifacts/{}/tags/{}".format(image.team, image.artifact, image.tag)
+
+        response = self._get(path)
+        response.raise_for_status()
+        tag_info = response.json()
+        created_by = tag_info["created_by"]
+        tag_info["created_by"] = KNOWN_USERS.get(created_by, created_by)
+        return tag_info
+
+    def get_image_tags(self, image: DockerImage) -> list:
+        """
+        Gets all tags for an image.
+        """
+        path = "/teams/{team}/artifacts/{artifact}/tags".format(team=image.team, artifact=image.artifact)
+
+        response = self._get(path)
+        try:
+            response.raise_for_status()
+        except requests.HTTPError:
+            return None
+        return [parse_pierone_artifact_dict(entry, image.team, image.artifact)
+                for entry in response.json()]
+
+
+    def get_scm_source(self, image: DockerImage) -> dict:
+        """
+        GETs ``image``s scm_source
+        """
+        path = "/teams/{}/artifacts/{}/tags/{}/scm-source".format(image.team, image.artifact, image.tag)
+        response = self._get(path)
+        try:
+            response.raise_for_status()
+        except requests.HTTPError:
+            return None
+        return response.json()
+
+    def mark_production_ready(self,):
+        pass
+
+
 # all the other paramaters are deprecated, but still here for compatibility
 def docker_login(url, realm, name, user, password, token_url=None, use_keyring=True, prompt=False):
     with Action('Getting OAuth2 token "{}"..'.format(name)):
@@ -138,39 +197,6 @@ def image_exists(image: DockerImage, token: str = None) -> bool:
         return False
     result = r.json()
     return image.tag in result
-
-
-def get_image_tag(image: DockerImage, token: str = None) -> dict:
-    tags = get_image_tags(image, token) or []
-    for entry in tags:
-        if entry['tag'] == image.tag:
-            return entry
-    return None
-
-
-def get_image_tags(image: DockerImage, token: str = None) -> list:
-    url = 'https://{}'.format(image.registry)
-    path = '/teams/{team}/artifacts/{artifact}/tags'.format(team=image.team, artifact=image.artifact)
-
-    response = request(url, path, token, True)
-    if response is None:
-        return None
-    return [parse_pierone_artifact_dict(entry, image.team, image.artifact)
-            for entry in response.json()]
-
-
-def get_tag_info(image: DockerImage, token: str = None) -> list:
-    """
-    Gets detailed tag information
-    """
-    url = "https://{}".format(image.registry)
-    path = "/teams/{}/artifacts/{}/tags/{}".format(image.team, image.artifact, image.tag)
-
-    response = request(url, path, token, False)
-    tag_info = response.json()
-    created_by = tag_info['created_by']
-    tag_info['created_by'] = KNOWN_USERS.get(created_by, created_by)
-    return tag_info
 
 
 def get_latest_tag(image: DockerImage, token: str = None) -> bool:

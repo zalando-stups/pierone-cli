@@ -16,6 +16,46 @@ def valid_pierone_url(monkeypatch):
     monkeypatch.setattr('requests.get', lambda *args, **kw: response)
 
 
+@pytest.fixture()
+def mock_pierone_api(monkeypatch):
+    api = MagicMock(name="PierOne")
+    api.return_value = api
+
+    tags = [
+        {
+            'tag': '1.0',
+            'team': 'foo',
+            'artifact': 'app1',
+            'severity_fix_available': 'TOO_OLD',
+            'severity_no_fix_available': 'TOO_OLD',
+            'created_by': 'myuser',
+            'created': '2015-08-01T08:14:59.432Z'
+        },
+        {
+            'tag': '1.1',
+            'team': 'foo',
+            'artifact': 'app1',
+            'severity_fix_available': 'NO_CVES_FOUND',
+            'severity_no_fix_available': 'NO_CVES_FOUND',
+            'created_by': 'myuser',
+            'created': '2015-08-02T08:14:59.432Z'
+        },
+        {
+            'tag': '2.0',
+            'team': 'foo',
+            'artifact': 'app1',
+            'severity_fix_available': 'NO_CVES_FOUND',
+            'severity_no_fix_available': 'NO_CVES_FOUND',
+            'created_by': 'myuser',
+            'created': '2016-06-20T08:14:59.432Z'
+        },
+    ]
+    api.get_image_tags = MagicMock(name="get_image_tags -> tags", return_value=tags)
+
+    monkeypatch.setattr('pierone.api.PierOne', api)
+    monkeypatch.setattr('pierone.cli.PierOne', api)
+    return api
+
 def test_version(monkeypatch):
     runner = CliRunner()
 
@@ -216,7 +256,7 @@ def test_image(monkeypatch, tmpdir):
         assert "more than one" in result.output
 
 
-def test_tags(monkeypatch, tmpdir):
+def test_tags(monkeypatch, tmpdir, mock_pierone_api):
     response = MagicMock()
     response.json.return_value = [
         # Former pierone payload
@@ -350,44 +390,14 @@ def test_mark_trusted(monkeypatch, tmpdir):
         assert 'Marked image as trusted.' in result.output
 
 
-def test_tags_versions_limit(monkeypatch, tmpdir):
+def test_tags_versions_limit(monkeypatch, tmpdir, mock_pierone_api):
     artifacts = ['app1', 'app2']
-    tags = [
-        {
-            'tag': '1.0',
-            'team': 'foo',
-            'artifact': 'app1',
-            'severity_fix_available': 'TOO_OLD',
-            'severity_no_fix_available': 'TOO_OLD',
-            'created_by': 'myuser',
-            'created': '2015-08-01T08:14:59.432Z'
-        },
-        {
-            'tag': '1.1',
-            'team': 'foo',
-            'artifact': 'app1',
-            'severity_fix_available': 'NO_CVES_FOUND',
-            'severity_no_fix_available': 'NO_CVES_FOUND',
-            'created_by': 'myuser',
-            'created': '2015-08-02T08:14:59.432Z'
-        },
-        {
-            'tag': '2.0',
-            'team': 'foo',
-            'artifact': 'app1',
-            'severity_fix_available': 'NO_CVES_FOUND',
-            'severity_no_fix_available': 'NO_CVES_FOUND',
-            'created_by': 'myuser',
-            'created': '2016-06-20T08:14:59.432Z'
-        },
-    ]
 
     runner = CliRunner()
     monkeypatch.setattr('stups_cli.config.load_config', lambda x: {'url': 'foobar'})
     monkeypatch.setattr('zign.api.get_token', MagicMock(return_value='tok123'))
     monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
     monkeypatch.setattr('pierone.cli.get_artifacts', MagicMock(return_value=artifacts))
-    monkeypatch.setattr('pierone.cli.get_image_tags', MagicMock(return_value=tags))
     with runner.isolated_filesystem():
         result = runner.invoke(cli, ['tags', 'myteam', '--limit=1'], catch_exceptions=False)
         assert '1.0' not in result.output
