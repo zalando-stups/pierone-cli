@@ -303,3 +303,13 @@ def test_get_scm_source():
 
     api.session.request = MagicMock(return_value=error_response)
     assert api.get_scm_source(image) is None
+
+def test_get_artifacts():
+    response = MagicMock()
+    response.status_code = 200
+    response.json.return_value = ["pierone", "piertwo", "pierthree"]
+
+    image = DockerImage(registry='registry', team='foo', artifact='bar', tag=None)
+    api = PierOne('registry')
+    api.session.request = MagicMock(return_value=response)
+    assert api.get_artifacts(image) == ["pierone", "piertwo", "pierthree"]
