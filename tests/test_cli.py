@@ -21,6 +21,8 @@ def mock_pierone_api(monkeypatch):
     api = MagicMock(name="PierOne")
     api.return_value = api
 
+    api.get_artifacts = MagicMock(return_value=['app1', 'app2'])
+
     tags = [
         {
             'tag': '1.0',
@@ -390,13 +392,11 @@ def test_mark_trusted(monkeypatch, tmpdir):
 
 
 def test_tags_versions_limit(monkeypatch, tmpdir, mock_pierone_api):
-    artifacts = ['app1', 'app2']
 
     runner = CliRunner()
     monkeypatch.setattr('stups_cli.config.load_config', lambda x: {'url': 'foobar'})
     monkeypatch.setattr('zign.api.get_token', MagicMock(return_value='tok123'))
     monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
-    monkeypatch.setattr('pierone.cli.get_artifacts', MagicMock(return_value=artifacts))
     with runner.isolated_filesystem():
         result = runner.invoke(cli, ['tags', 'myteam', '--limit=1'], catch_exceptions=False)
         assert '1.0' not in result.output
@@ -433,19 +433,9 @@ def test_latest_not_found(monkeypatch, tmpdir):
         assert result.exit_code == 1
 
 
-def test_url_without_scheme(monkeypatch, tmpdir):
-    response = MagicMock()
-    response.json.return_value = [{'name': '1.0', 'created_by': 'myuser', 'created': '2015-08-20T08:14:59.432Z'}]
-
-    def request(method, url, **kwargs):
-        assert url == 'https://example.org/teams/myteam/artifacts'
-        assert method == 'GET'
-        return response
+def test_url_without_scheme(monkeypatch, tmpdir, mock_pierone_api):
 
     runner = CliRunner()
-    monkeypatch.setattr('zign.api.get_token', MagicMock(return_value='tok123'))
-    monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
-    monkeypatch.setattr('pierone.api.session.request', request)
     with runner.isolated_filesystem():
         result = runner.invoke(cli, ['artifacts', 'myteam', '--url', 'example.org'], catch_exceptions=False)
-        assert '1.0' in result.output
+        assert 'myteam app2' in result.output

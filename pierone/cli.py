@@ -120,11 +120,6 @@ def teams(config, output, url):
         print_table(['name'], rows)
 
 
-def get_artifacts(url, team: str, access_token):
-    r = request(url, '/teams/{}/artifacts'.format(team), access_token)
-    return r.json()
-
-
 def get_tags(url, team, art, access_token):
     r = request(url, '/teams/{}/artifacts/{}/tags'.format(team, art), access_token, True)
     if r is None:
@@ -139,11 +134,10 @@ def get_tags(url, team, art, access_token):
 @output_option
 @click.pass_obj
 def artifacts(config, team, url, output):
-    '''List all team artifacts'''
-    set_pierone_url(config, url)
-    token = get_token()
-
-    result = get_artifacts(config.get('url'), team, token)
+    """List all team artifacts"""
+    url = set_pierone_url(config, url)
+    api = PierOne(url)
+    result = api.get_artifacts(team)
     rows = [{'team': team, 'artifact': name} for name in sorted(result)]
     with OutputFormat(output):
         print_table(['team', 'artifact'], rows)
@@ -159,7 +153,6 @@ def artifacts(config, team, url, output):
 def tags(config, team: str, artifact, url, output, limit):
     '''List all tags for a given team'''
     registry = set_pierone_url(config, url)
-    token = get_token()
     api = PierOne(registry)
 
     if limit is None:
@@ -167,7 +160,7 @@ def tags(config, team: str, artifact, url, output, limit):
         limit = 20 if artifact else 3
 
     if not artifact:
-        artifact = get_artifacts(registry, team, token)
+        artifact = api.get_artifacts(team)
         if not artifact:
             raise click.UsageError('The Team you are looking for does not exist or '
                                    'we could not find any artifacts registered in Pierone! '
@@ -236,8 +229,7 @@ def mark_production_ready(config, incident, team, artifact, tag, url):
     """
     Manually mark image as production ready.
     """
-    set_pierone_url(config, url)
-    pierone_url = config.get('url')
+    pierone_url = set_pierone_url(config, url)
     image = format_full_image_name(pierone_url, team, artifact, tag)
     print("🧙 Marking {} as `production_ready` due to incident {}.".format(image, incident))
     # TODO actually mark as trusted

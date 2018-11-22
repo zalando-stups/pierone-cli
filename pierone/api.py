@@ -111,6 +111,14 @@ class PierOne:
             return None
         return response.json()
 
+    def get_artifacts(self, team: str):
+        """
+        GETs all ``teams``'s artifacts.
+        """
+        response = self._get('/teams/{}/artifacts'.format(team))
+        response.raise_for_status()
+        return response.json()
+
     def mark_production_ready(self,):
         pass
 
