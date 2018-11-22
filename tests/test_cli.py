@@ -50,7 +50,9 @@ def mock_pierone_api(monkeypatch):
             'created': '2016-06-20T08:14:59.432Z'
         },
     ]
-    api.get_image_tags = MagicMock(name="get_image_tags -> tags", return_value=tags)
+    api.get_image_tags = MagicMock(return_value=tags)
+
+    api.get_scm_source = MagicMock(return_value={'url': 'git:somerepo', 'revision': 'myrev123'})
 
     monkeypatch.setattr('pierone.api.PierOne', api)
     monkeypatch.setattr('pierone.cli.PierOne', api)
@@ -192,16 +194,13 @@ def test_login_given_url_option(monkeypatch, tmpdir):
         assert config == {'url': 'https://pieroneurl'}
 
 
-def test_scm_source(monkeypatch, tmpdir):
-    response = MagicMock()
-    response.json.return_value = {'url': 'git:somerepo', 'revision': 'myrev123'}
+def test_scm_source(monkeypatch, tmpdir, mock_pierone_api):
 
     runner = CliRunner()
     monkeypatch.setattr('stups_cli.config.load_config', lambda x: {'url': 'foobar'})
     monkeypatch.setattr('zign.api.get_token', MagicMock(return_value='tok123'))
     monkeypatch.setattr('pierone.cli.get_tags', MagicMock(return_value=[{'name': 'myart'}]))
     monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
-    monkeypatch.setattr('pierone.api.session.request', MagicMock(return_value=response))
     with runner.isolated_filesystem():
         result = runner.invoke(cli, ['scm-source', 'myteam', 'myart', '1.0'], catch_exceptions=False)
         assert 'myrev123' in result.output

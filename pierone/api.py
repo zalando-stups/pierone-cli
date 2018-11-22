@@ -99,7 +99,6 @@ class PierOne:
         return [parse_pierone_artifact_dict(entry, image.team, image.artifact)
                 for entry in response.json()]
 
-
     def get_scm_source(self, image: DockerImage) -> dict:
         """
         GETs ``image``s scm_source
