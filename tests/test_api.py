@@ -223,11 +223,10 @@ def test_get_image_tags(monkeypatch):
     response.json.return_value = [{'created': '2015-06-01T14:12:03.276+0000',
                                    'created_by': 'foobar',
                                    'name': '0.17'}]
-    monkeypatch.setattr('pierone.api.session.request', MagicMock(return_value=response))
+    monkeypatch.setattr('pierone.api.get_token', MagicMock(return_value="ABC"))
     image = DockerImage(registry='registry', team='foo', artifact='bar', tag=None)
     api = PierOne('registry')
     api.session.request = MagicMock(return_value=response)
-    # TODO mock get_token
     image_tags = api.get_image_tags(image)
     tag = image_tags[0]
 
