@@ -9,6 +9,17 @@ from pierone.api import (DockerImage, docker_login, docker_login_with_iid, PierO
 import requests.exceptions
 
 
+@pytest.fixture(autouse=True)
+def valid_pierone_url(monkeypatch):
+    response = MagicMock()
+    response.text = 'Pier One API'
+    monkeypatch.setattr('requests.get', lambda *args, **kw: response)
+
+@pytest.fixture(autouse=True)
+def mock_get_token(monkeypatch):
+    monkeypatch.setattr('pierone.api.get_token', MagicMock(return_value="12377"))
+
+
 def test_docker_login(monkeypatch, tmpdir):
     monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
     monkeypatch.setattr('pierone.api.get_token', MagicMock(return_value='12377'))
@@ -22,7 +33,6 @@ def test_docker_login(monkeypatch, tmpdir):
 
 def test_docker_login_with_credsstore(monkeypatch, tmpdir):
     monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
-    monkeypatch.setattr('pierone.api.get_token', MagicMock(return_value='12377'))
     path = os.path.expanduser('~/.docker/config.json')
     os.makedirs(os.path.dirname(path))
     with open(path, 'w') as fd:
@@ -223,7 +233,6 @@ def test_get_image_tags(monkeypatch):
     response.json.return_value = [{'created': '2015-06-01T14:12:03.276+0000',
                                    'created_by': 'foobar',
                                    'name': '0.17'}]
-    monkeypatch.setattr('pierone.api.get_token', MagicMock(return_value="ABC"))
     image = DockerImage(registry='registry', team='foo', artifact='bar', tag=None)
     api = PierOne('registry')
     api.session.request = MagicMock(return_value=response)
@@ -234,3 +243,27 @@ def test_get_image_tags(monkeypatch):
     assert tag['artifact'] == 'bar'
     assert tag['tag'] == '0.17'
     assert tag['created_by'] == 'foobar'
+
+
+def test_get_tag_info(monkeypatch):
+    response = MagicMock()
+    response.status_code = 200
+    response.json.return_value = {
+        "artifact": "test",
+        "created": "2018-08-27T13:15:28.968Z",
+        "created_by": "credprov-cdp-controller-proxy_pierone-token",
+        "image": "sha256:2ee6f0b4d7313903fdf3d326dacfc4c711da339ab3a12ccdd78e18e17daa6eb1",
+        "name": "pr-1-1",
+        "status": "test_status",
+        "status_reason_details": "test_status",
+        "status_reason_summary": "test_status",
+        "status_received_at": "2018-08-27T13:15:28.968Z"
+    }
+
+    image = DockerImage(registry='registry', team='foo', artifact='bar', tag=None)
+    api = PierOne('registry')
+    api.session.request = MagicMock(return_value=response)
+    details = api.get_tag_info(image)
+
+    assert details['artifact'] == 'test'
+    assert details['created_by'] == '[CDP]'
