@@ -244,8 +244,15 @@ def test_get_image_tags(monkeypatch):
     assert tag['tag'] == '0.17'
     assert tag['created_by'] == 'foobar'
 
+    error_response = MagicMock(status_code=404)
+    error_response.raise_for_status.side_effect = requests.HTTPError(404, "Not Found")
+    error_response.return_value = error_response
 
-def test_get_tag_info(monkeypatch):
+    api.session.request = MagicMock(return_value=error_response)
+    assert api.get_image_tags(image) is None
+
+
+def test_get_tag_info():
     response = MagicMock()
     response.status_code = 200
     response.json.return_value = {
@@ -267,3 +274,32 @@ def test_get_tag_info(monkeypatch):
 
     assert details['artifact'] == 'test'
     assert details['created_by'] == '[CDP]'
+
+
+def test_get_scm_source():
+    response = MagicMock()
+    response.status_code = 200
+    response.json.return_value = {
+        "author": "ckent",
+        "created": "2038-11-06T14:58:58.792Z",
+        "revision": "6e6bb8c5a95ebb8b447b5516c292467d098c2a758",
+        "status": "",
+        "url": "git:git@github.bus.zalan.do:continuous-delivery/cdp-builder.git",
+        "valid": True
+    }
+
+    error_response = MagicMock(status_code=404)
+    error_response.raise_for_status.side_effect = requests.HTTPError(404, "Not Found")
+    error_response.return_value = error_response
+
+
+    image = DockerImage(registry='registry', team='foo', artifact='bar', tag=None)
+    api = PierOne('registry')
+    api.session.request = MagicMock(return_value=response)
+    details = api.get_scm_source(image)
+
+    assert details['author'] == 'ckent'
+    assert details['valid'] == True
+
+    api.session.request = MagicMock(return_value=error_response)
+    assert api.get_scm_source(image) is None
