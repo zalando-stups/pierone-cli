@@ -234,7 +234,9 @@ def mark_production_ready(config, incident, team, artifact, tag, url):
     image = DockerImage(registry, team, artifact, tag)
     api = PierOne(pierone_url)
     api.mark_production_ready(image, incident)
-    print("🧙 Marked {} as `production_ready` due to incident {}.".format(
+    if team in ["ci", "automata", "torch"]:
+        click.echo("🧙 ", nl=False)
+    click.echo("Marked {} as `production_ready` due to incident {}.".format(
         format_full_image_name(image), incident
     ))
 
