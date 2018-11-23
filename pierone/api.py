@@ -11,11 +11,7 @@ from zign.api import get_token
 
 from .exceptions import ArtifactNotFound
 from .types import DockerImage
-
-KNOWN_USERS = {
-    "credprov-cdp-controller-proxy_pierone-token": "[CDP]",
-    "credprov-cdp-controller-proxy-credentials-cdp_proxy-token": "[CDP]",
-}
+from .utils import get_user_friendly_user_name
 
 adapter = requests.adapters.HTTPAdapter(pool_connections=10, pool_maxsize=10)
 session = requests.Session()
@@ -69,7 +65,7 @@ class PierOne:
             raise
         tag_info = response.json()
         created_by = tag_info["created_by"]
-        tag_info["created_by"] = KNOWN_USERS.get(created_by, created_by)
+        tag_info["created_by"] = get_user_friendly_user_name(created_by)
         return tag_info
 
     def get_image_tags(self, image: DockerImage) -> list:
@@ -238,7 +234,7 @@ def parse_pierone_artifact_dict(original_payload_from_api, team, artifact) -> di
     parsed_dict['artifact'] = artifact
     parsed_dict['tag'] = original_payload_from_api['name']
     created_by = original_payload_from_api['created_by']
-    parsed_dict['created_by'] = KNOWN_USERS.get(created_by, created_by)
+    parsed_dict['created_by'] = get_user_friendly_user_name(created_by)
     parsed_dict['created_time'] = parse_time(original_payload_from_api['created'])
     status_received_at = original_payload_from_api.get('status_received_at')
     parsed_dict['status_time'] = parse_time(status_received_at) if status_received_at else 'N/A'

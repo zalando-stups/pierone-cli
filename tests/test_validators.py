@@ -2,7 +2,7 @@ import click
 import string
 
 from hypothesis import given
-from hypothesis.strategies import text, lists, integers, one_of, deferred
+from hypothesis.strategies import text, lists, integers
 import pytest
 
 from pierone.validators import validate_incident_id, validate_team
