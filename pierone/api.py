@@ -94,8 +94,10 @@ class PierOne:
 
         try:
             response = self._get(path)
-        except requests.HTTPError:
-            return None
+        except requests.HTTPError as error:
+            if error.response.status_code == 404:  # Only return ``None``` if image is not found
+                return None
+            raise
         return [parse_pierone_artifact_dict(entry, image.team, image.artifact)
                 for entry in response.json()]
 
@@ -106,8 +108,10 @@ class PierOne:
         path = "/teams/{}/artifacts/{}/tags/{}/scm-source".format(image.team, image.artifact, image.tag)
         try:
             response = self._get(path)
-        except requests.HTTPError:
-            return None
+        except requests.HTTPError as error:
+            if error.response.status_code == 404:  # Only return ``None``` if image is not found
+                return None
+            raise
         return response.json()
 
     def get_artifacts(self, team: str):

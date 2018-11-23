@@ -244,12 +244,18 @@ def test_get_image_tags(monkeypatch):
     assert tag['tag'] == '0.17'
     assert tag['created_by'] == 'foobar'
 
-    error_response = MagicMock(status_code=404)
-    error_response.raise_for_status.side_effect = requests.HTTPError(404, "Not Found")
-    error_response.return_value = error_response
-
-    api.session.request = MagicMock(return_value=error_response)
+    not_found_response = MagicMock(status_code=404)
+    not_found_response.raise_for_status.side_effect = requests.HTTPError(response=MagicMock(status_code=404))
+    not_found_response.return_value = not_found_response
+    api.session.request = MagicMock(return_value=not_found_response)
     assert api.get_image_tags(image) is None
+
+    error_response = MagicMock(status_code=500)
+    error_response.raise_for_status.side_effect = requests.HTTPError(response=MagicMock(status_code=500))
+    error_response.return_value = error_response
+    api.session.request = MagicMock(return_value=error_response)
+    with pytest.raises(requests.HTTPError):
+        api.get_image_tags(image)
 
 
 def test_get_tag_info():
@@ -288,10 +294,6 @@ def test_get_scm_source():
         "valid": True
     }
 
-    error_response = MagicMock(status_code=404)
-    error_response.raise_for_status.side_effect = requests.HTTPError(404, "Not Found")
-    error_response.return_value = error_response
-
 
     image = DockerImage(registry='registry', team='foo', artifact='bar', tag=None)
     api = PierOne('registry')
@@ -301,8 +303,18 @@ def test_get_scm_source():
     assert details['author'] == 'ckent'
     assert details['valid'] == True
 
-    api.session.request = MagicMock(return_value=error_response)
+    not_found_response = MagicMock(status_code=404)
+    not_found_response.raise_for_status.side_effect = requests.HTTPError(response=MagicMock(status_code=404))
+    not_found_response.return_value = not_found_response
+    api.session.request = MagicMock(return_value=not_found_response)
     assert api.get_scm_source(image) is None
+
+    error_response = MagicMock(status_code=500)
+    error_response.raise_for_status.side_effect = requests.HTTPError(response=MagicMock(status_code=500))
+    error_response.return_value = error_response
+    api.session.request = MagicMock(return_value=error_response)
+    with pytest.raises(requests.HTTPError):
+        api.get_scm_source(image)
 
 def test_get_artifacts():
     response = MagicMock()
