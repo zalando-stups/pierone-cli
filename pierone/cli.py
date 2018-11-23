@@ -230,9 +230,14 @@ def mark_production_ready(config, incident, team, artifact, tag, url):
     Manually mark image as production ready.
     """
     pierone_url = set_pierone_url(config, url)
-    image = format_full_image_name(pierone_url, team, artifact, tag)
-    print("🧙 Marking {} as `production_ready` due to incident {}.".format(image, incident))
-    # TODO actually mark as trusted
+    registry = get_registry(pierone_url)
+    image = DockerImage(registry, team, artifact, tag)
+    api = PierOne(pierone_url)
+    api.mark_production_ready(image, incident)
+    print("🧙 Marked {} as `production_ready` due to incident {}.".format(
+        format_full_image_name(image), incident
+    ))
+
 
 
 @cli.command()

@@ -4,7 +4,9 @@ from unittest.mock import MagicMock, ANY
 
 import yaml
 import pytest
-from pierone.api import (DockerImage, docker_login, docker_login_with_iid, PierOne, get_latest_tag, image_exists)
+from pierone.api import (DockerImage, docker_login, docker_login_with_iid, PierOne, get_latest_tag,
+                         image_exists)
+from pierone.exceptions import (ImageNotFound)
 
 import requests.exceptions
 
@@ -325,3 +327,28 @@ def test_get_artifacts():
     api = PierOne('registry')
     api.session.request = MagicMock(return_value=response)
     assert api.get_artifacts(image) == ["pierone", "piertwo", "pierthree"]
+
+
+def test_mark_production_ready():
+    image = DockerImage(registry='registry', team='foo', artifact='bar', tag=None)
+    api = PierOne('registry')
+    api.session.post = MagicMock()
+    api.mark_production_ready(image, "INC-42")
+    api.session.post.assert_called_once_with(
+        'https://registry/teams/foo/artifacts/bar/tags/None/production-ready',
+        json={'incident_id': 'INC-42'}
+    )
+
+    not_found_response = MagicMock(status_code=404)
+    not_found_response.raise_for_status.side_effect = requests.HTTPError(response=MagicMock(status_code=404))
+    not_found_response.return_value = not_found_response
+    api.session.post = MagicMock(return_value=not_found_response)
+    with pytest.raises(ImageNotFound):
+        api.mark_production_ready(image, "INC-42")
+
+    error_response = MagicMock(status_code=500)
+    error_response.raise_for_status.side_effect = requests.HTTPError(response=MagicMock(status_code=500))
+    error_response.return_value = error_response
+    api.session.post = MagicMock(return_value=error_response)
+    with pytest.raises(requests.HTTPError):
+        api.mark_production_ready(image, "INC-42")

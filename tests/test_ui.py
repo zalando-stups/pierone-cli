@@ -1,10 +1,13 @@
 from pierone.ui import markdown_2_cli, format_full_image_name
+from pierone.api import DockerImage
 
 
 def test_format_full_image_name():
     expected = "\x1b[4mpierone.example.org/team/image:tag\x1b[0m"
-    assert format_full_image_name("https://pierone.example.org", "team", "image", "tag") == expected
-    assert format_full_image_name("pierone.example.org", "team", "image", "tag") == expected
+    image_with_http = DockerImage("https://pierone.example.org", "team", "image", "tag")
+    image_simple =DockerImage("pierone.example.org", "team", "image", "tag")
+    assert format_full_image_name(image_with_http) == expected
+    assert format_full_image_name(image_simple) == expected
 
 
 def test_unformatted():

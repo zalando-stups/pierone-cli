@@ -4,14 +4,16 @@ Functions to display things nicely.
 
 import click
 from .utils import get_registry
+from .api import DockerImage
 
 
-def format_full_image_name(url: str, team: str, artifact: str, tag: str) -> str:
+def format_full_image_name(image: DockerImage) -> str:
     """
     Returns a formatted string with the full image name.
     """
-    registry = get_registry(url)
-    image = click.style("{}/{}/{}:{}".format(registry, team, artifact, tag), underline=True)
+    registry = get_registry(image.registry)  # make sure registry doesn't have http
+    image = click.style("{}/{}/{}:{}".format(registry, image.team, image.artifact, image.tag),
+                        underline=True)
     return image
 
 

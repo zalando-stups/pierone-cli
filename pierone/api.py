@@ -10,6 +10,8 @@ import requests
 from clickclick import Action
 from zign.api import get_token
 
+from .exceptions import ImageNotFound
+
 KNOWN_USERS = {
     "credprov-cdp-controller-proxy_pierone-token": "[CDP]",
     "credprov-cdp-controller-proxy-credentials-cdp_proxy-token": "[CDP]",
@@ -74,6 +76,15 @@ class PierOne:
         response.raise_for_status()
         return response
 
+    def _post(self, path, json=None, *args, **kwargs) -> requests.Response:
+        """
+        POSTs things to Pier One.
+        """
+        url = self.url + path
+        response = self.session.post(url, json=json, *args, **kwargs)
+        response.raise_for_status()
+        return response
+
     def get_tag_info(self, image: DockerImage) -> list:
         """
         Gets detailed tag information
@@ -121,9 +132,16 @@ class PierOne:
         response = self._get('/teams/{}/artifacts'.format(team))
         return response.json()
 
-    def mark_production_ready(self,):
-        pass  # TODO don't forget to test
-
+    def mark_production_ready(self, image: DockerImage, incident_id: str):
+        path = "/teams/{}/artifacts/{}/tags/{}/production-ready".format(image.team, image.artifact, image.tag)
+        payload = {"incident_id": incident_id}
+        try:
+            self._post(path, json=payload)
+        except requests.HTTPError as error:
+            if error.response.status_code == 404:
+                # Raise ImageNotFound only if it the image is not found
+                raise ImageNotFound(image)
+            raise
 
 # all the other paramaters are deprecated, but still here for compatibility
 def docker_login(url, realm, name, user, password, token_url=None, use_keyring=True, prompt=False):
