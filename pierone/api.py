@@ -32,9 +32,9 @@ class PierOne:
 
     def __init__(self, url: str):
         self.url = url if url.startswith("https://") else "https://" + url
-        self.__access_token = get_token('pierone', ['uid'])
+        self._access_token = get_token('pierone', ['uid'])
         self.session = requests.Session()
-        self.session.headers['Authorization'] = 'Bearer {}'.format(self.__access_token)
+        self.session.headers['Authorization'] = 'Bearer {}'.format(self._access_token)
 
     def _get(self, path, *args, **kwargs) -> requests.Response:
         """
@@ -96,7 +96,7 @@ class PierOne:
         try:
             response = self._get(path)
         except requests.HTTPError as error:
-            if error.response.status_code == 404:  # Only return ``None``` if image is not found
+            if error.response.status_code == 404:
                 # Raise ArtifactNotFound only if image is not found
                 raise ArtifactNotFound(image)
             raise
