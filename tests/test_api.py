@@ -17,9 +17,25 @@ def valid_pierone_url(monkeypatch):
     response.text = 'Pier One API'
     monkeypatch.setattr('requests.get', lambda *args, **kw: response)
 
+
 @pytest.fixture(autouse=True)
 def mock_get_token(monkeypatch):
     monkeypatch.setattr('pierone.api.get_token', MagicMock(return_value="12377"))
+
+
+@pytest.fixture()
+def not_found_response():
+    not_found_response = MagicMock(status_code=404)
+    not_found_response.raise_for_status.side_effect = requests.HTTPError(response=MagicMock(status_code=404))
+    not_found_response.return_value = not_found_response
+    return not_found_response
+
+@pytest.fixture()
+def error_response():
+    error_response = MagicMock(status_code=500)
+    error_response.raise_for_status.side_effect = requests.HTTPError(response=MagicMock(status_code=500))
+    error_response.return_value = error_response
+    return error_response
 
 
 def test_docker_login(monkeypatch, tmpdir):
@@ -229,7 +245,7 @@ def test_image_not_exists(monkeypatch):
     assert data is False
 
 
-def test_get_image_tags(monkeypatch):
+def test_get_image_tags(not_found_response, error_response):
     response = MagicMock()
     response.status_code = 200
     response.json.return_value = [{'created': '2015-06-01T14:12:03.276+0000',
@@ -246,22 +262,16 @@ def test_get_image_tags(monkeypatch):
     assert tag['tag'] == '0.17'
     assert tag['created_by'] == 'foobar'
 
-    not_found_response = MagicMock(status_code=404)
-    not_found_response.raise_for_status.side_effect = requests.HTTPError(response=MagicMock(status_code=404))
-    not_found_response.return_value = not_found_response
     api.session.request = MagicMock(return_value=not_found_response)
     with pytest.raises(ArtifactNotFound):
         api.get_image_tags(image)
 
-    error_response = MagicMock(status_code=500)
-    error_response.raise_for_status.side_effect = requests.HTTPError(response=MagicMock(status_code=500))
-    error_response.return_value = error_response
     api.session.request = MagicMock(return_value=error_response)
     with pytest.raises(requests.HTTPError):
         api.get_image_tags(image)
 
 
-def test_get_tag_info():
+def test_get_tag_info(not_found_response, error_response):
     response = MagicMock()
     response.status_code = 200
     response.json.return_value = {
@@ -284,22 +294,16 @@ def test_get_tag_info():
     assert details['artifact'] == 'test'
     assert details['created_by'] == '[CDP]'
 
-    not_found_response = MagicMock(status_code=404)
-    not_found_response.raise_for_status.side_effect = requests.HTTPError(response=MagicMock(status_code=404))
-    not_found_response.return_value = not_found_response
     api.session.request = MagicMock(return_value=not_found_response)
     with pytest.raises(ArtifactNotFound):
         api.get_tag_info(image)
 
-    error_response = MagicMock(status_code=500)
-    error_response.raise_for_status.side_effect = requests.HTTPError(response=MagicMock(status_code=500))
-    error_response.return_value = error_response
     api.session.request = MagicMock(return_value=error_response)
     with pytest.raises(requests.HTTPError):
         api.get_tag_info(image)
 
 
-def test_get_scm_source():
+def test_get_scm_source(not_found_response, error_response):
     response = MagicMock()
     response.status_code = 200
     response.json.return_value = {
@@ -320,16 +324,10 @@ def test_get_scm_source():
     assert details['author'] == 'ckent'
     assert details['valid'] == True
 
-    not_found_response = MagicMock(status_code=404)
-    not_found_response.raise_for_status.side_effect = requests.HTTPError(response=MagicMock(status_code=404))
-    not_found_response.return_value = not_found_response
     api.session.request = MagicMock(return_value=not_found_response)
     with pytest.raises(ArtifactNotFound):
         api.get_scm_source(image)
 
-    error_response = MagicMock(status_code=500)
-    error_response.raise_for_status.side_effect = requests.HTTPError(response=MagicMock(status_code=500))
-    error_response.return_value = error_response
     api.session.request = MagicMock(return_value=error_response)
     with pytest.raises(requests.HTTPError):
         api.get_scm_source(image)
@@ -345,7 +343,7 @@ def test_get_artifacts():
     assert api.get_artifacts(image) == ["pierone", "piertwo", "pierthree"]
 
 
-def test_mark_production_ready():
+def test_mark_production_ready(not_found_response, error_response):
     image = DockerImage(registry='registry', team='foo', artifact='bar', tag=None)
     api = PierOne('registry')
     api.session.post = MagicMock()
@@ -355,16 +353,10 @@ def test_mark_production_ready():
         json={'incident_id': 'INC-42'}
     )
 
-    not_found_response = MagicMock(status_code=404)
-    not_found_response.raise_for_status.side_effect = requests.HTTPError(response=MagicMock(status_code=404))
-    not_found_response.return_value = not_found_response
     api.session.post = MagicMock(return_value=not_found_response)
     with pytest.raises(ArtifactNotFound):
         api.mark_production_ready(image, "INC-42")
 
-    error_response = MagicMock(status_code=500)
-    error_response.raise_for_status.side_effect = requests.HTTPError(response=MagicMock(status_code=500))
-    error_response.return_value = error_response
     api.session.post = MagicMock(return_value=error_response)
     with pytest.raises(requests.HTTPError):
         api.mark_production_ready(image, "INC-42")
