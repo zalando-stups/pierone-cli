@@ -4,7 +4,7 @@ Functions to display things nicely.
 
 import click
 from .utils import get_registry
-from .api import DockerImage
+from .types import DockerImage
 
 
 def format_full_image_name(image: DockerImage) -> str:

@@ -1,6 +1,5 @@
 import base64
 import codecs
-import collections
 import datetime
 import json
 import os
@@ -10,7 +9,8 @@ import requests
 from clickclick import Action
 from zign.api import get_token
 
-from .exceptions import ImageNotFound
+from .exceptions import ArtifactNotFound
+from .types import DockerImage
 
 KNOWN_USERS = {
     "credprov-cdp-controller-proxy_pierone-token": "[CDP]",
@@ -26,37 +26,6 @@ session.mount('https://', adapter)
 class Unauthorized(Exception):
     def __str__(self):
         return 'Unauthorized: token missing or invalid'
-
-
-class DockerImage(collections.namedtuple('DockerImage', 'registry team artifact tag')):
-    @classmethod
-    def parse(cls, image: str):
-        '''
-        >>> DockerImage.parse('x')
-        Traceback (most recent call last):
-        ValueError: Invalid docker image "x" (format must be [REGISTRY/]TEAM/ARTIFACT:TAG)
-        >>> DockerImage.parse('foo/bar')
-        DockerImage(registry=None, team='foo', artifact='bar', tag='')
-        >>> DockerImage.parse('registry/foo/bar:1.9')
-        DockerImage(registry='registry', team='foo', artifact='bar', tag='1.9')
-        '''
-        parts = image.split('/')
-        if len(parts) == 3:
-            registry = parts[0]
-        elif len(parts) < 2:
-            raise ValueError('Invalid docker image "{}" (format must be [REGISTRY/]TEAM/ARTIFACT:TAG)'.format(image))
-        else:
-            registry = None
-        team = parts[-2]
-        artifact, sep, tag = parts[-1].partition(':')
-        return DockerImage(registry=registry, team=team, artifact=artifact, tag=tag)
-
-    def __str__(self):
-        '''
-        >>> str(DockerImage(registry='registry', team='foo', artifact='bar', tag='1.9'))
-        'registry/foo/bar:1.9'
-        '''
-        return '{}/{}/{}:{}'.format(*tuple(self))
 
 
 class PierOne:
@@ -91,7 +60,13 @@ class PierOne:
         """
         path = "/teams/{}/artifacts/{}/tags/{}".format(image.team, image.artifact, image.tag)
 
-        response = self._get(path)
+        try:
+            response = self._get(path)
+        except requests.HTTPError as error:
+            if error.response.status_code == 404:
+                # Raise ArtifactNotFound only if it the image is not found
+                raise ArtifactNotFound(image)
+            raise
         tag_info = response.json()
         created_by = tag_info["created_by"]
         tag_info["created_by"] = KNOWN_USERS.get(created_by, created_by)
@@ -106,8 +81,9 @@ class PierOne:
         try:
             response = self._get(path)
         except requests.HTTPError as error:
-            if error.response.status_code == 404:  # Only return ``None``` if image is not found
-                return None
+            if error.response.status_code == 404:
+                # Raise ArtifactNotFound only if it the team or artifact are not found
+                raise ArtifactNotFound(image)
             raise
         return [parse_pierone_artifact_dict(entry, image.team, image.artifact)
                 for entry in response.json()]
@@ -121,7 +97,8 @@ class PierOne:
             response = self._get(path)
         except requests.HTTPError as error:
             if error.response.status_code == 404:  # Only return ``None``` if image is not found
-                return None
+                # Raise ArtifactNotFound only if image is not found
+                raise ArtifactNotFound(image)
             raise
         return response.json()
 
@@ -139,9 +116,10 @@ class PierOne:
             self._post(path, json=payload)
         except requests.HTTPError as error:
             if error.response.status_code == 404:
-                # Raise ImageNotFound only if it the image is not found
-                raise ImageNotFound(image)
+                # Raise ArtifactNotFound only if it the image is not found
+                raise ArtifactNotFound(image)
             raise
+
 
 # all the other paramaters are deprecated, but still here for compatibility
 def docker_login(url, realm, name, user, password, token_url=None, use_keyring=True, prompt=False):

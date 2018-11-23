@@ -13,12 +13,12 @@ from clickclick import (AliasedGroup, OutputFormat, UrlType, error,
                         fatal_error, print_table)
 from requests import RequestException
 
-from .api import (DockerImage, Unauthorized, PierOne, docker_login, get_latest_tag, parse_time,
-                  request)
-from .exceptions import PieroneException
+from .api import Unauthorized, PierOne, docker_login, get_latest_tag, parse_time, request
+from .exceptions import PieroneException, ArtifactNotFound
 from .ui import format_full_image_name, markdown_2_cli
 from .utils import get_registry
 from .validators import validate_incident_id, validate_team
+from .types import DockerImage
 
 KEYRING_KEY = 'pierone'
 
@@ -175,10 +175,10 @@ def tags(config, team: str, artifact, url, output, limit):
             tags = api.get_image_tags(image)
         except Unauthorized as e:
             raise click.ClickException(str(e))
+        except ArtifactNotFound:
+            raise click.UsageError("Artifact or Team does not exist! "
+                                   "Please double check for spelling mistakes.")
         else:
-            if not tags:
-                raise click.UsageError('Artifact or Team does not exist! '
-                                       'Please double check for spelling mistakes.')
             rows.extend(tags[slice_from:])
 
     # sorts are guaranteed to be stable, i.e. tags will be sorted by time (as returned from REST service)
@@ -239,7 +239,6 @@ def mark_production_ready(config, incident, team, artifact, tag, url):
     ))
 
 
-
 @cli.command()
 @click.argument('team', callback=validate_team)
 @click.argument('artifact')
@@ -254,18 +253,17 @@ def describe(config, team, artifact, tag, url):
 
     image = DockerImage(registry=registry, team=team, artifact=artifact, tag=tag)
 
-    try:
-        tag_info = api.get_tag_info(image)
-    except requests.HTTPError:
-        full_name = "{}/{}/{}:{}".format(registry, team, artifact, tag)
-        fatal_error("{!r} not found".format(full_name))
-    status_details = markdown_2_cli(tag_info.get("checker_status_reason_details") or "")
+    tag_info = api.get_tag_info(image)
 
-    scm_source = api.get_scm_source(image)
+    try:
+        scm_source = api.get_scm_source(image)
+    except ArtifactNotFound:
+        scm_source = None
 
     underscore_to_title = (lambda s: s.replace('_', ' ').title() if s else "Not Processed")
     effective_status = underscore_to_title(tag_info.get("status"))
     checker_status = underscore_to_title(tag_info.get("checker_status"))
+    status_details = markdown_2_cli(tag_info.get("checker_status_reason_details") or "")
 
     line_size, _ = shutil.get_terminal_size(100)
     click.secho("General Information".ljust(line_size), fg='black', bg='white')
@@ -350,8 +348,11 @@ def scm_source(config, team, artifact, tag, url, output):
     rows = []
     for t in tag:
         image = DockerImage(url, team, artifact, t)
-        scm_source = api.get_scm_source(image)
-        row = scm_source or {}
+        try:
+            scm_source = api.get_scm_source(image)
+            row = scm_source
+        except ArtifactNotFound:
+            row = {}
         row['tag'] = t
         matching_tag = [d for d in tags if d['name'] == t]
         row['created_by'] = ''.join([d['created_by'] for d in matching_tag])
