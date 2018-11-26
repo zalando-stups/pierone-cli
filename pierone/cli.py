@@ -9,11 +9,10 @@ import requests
 import stups_cli.config
 import zign.api
 import sys
-from clickclick import (AliasedGroup, OutputFormat, UrlType, error,
-                        fatal_error, print_table)
+from clickclick import AliasedGroup, OutputFormat, UrlType, error, fatal_error, print_table
 from requests import RequestException
 
-from .api import Unauthorized, PierOne, docker_login, get_latest_tag, parse_time, request
+from .api import PierOne, docker_login, get_latest_tag, parse_time, request
 from .exceptions import PieroneException, ArtifactNotFound
 from .ui import format_full_image_name, markdown_2_cli
 from .utils import get_registry
@@ -173,8 +172,6 @@ def tags(config, team: str, artifact, url, output, limit):
         image = DockerImage(registry=registry, team=team, artifact=art, tag=None)
         try:
             tags = api.get_image_tags(image)
-        except Unauthorized as e:
-            raise click.ClickException(str(e))
         except ArtifactNotFound:
             raise click.UsageError("Artifact or Team does not exist! "
                                    "Please double check for spelling mistakes.")

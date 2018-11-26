@@ -19,11 +19,6 @@ session.mount('http://', adapter)
 session.mount('https://', adapter)
 
 
-class Unauthorized(Exception):
-    def __str__(self):
-        return 'Unauthorized: token missing or invalid'
-
-
 class PierOne:
 
     def __init__(self, url: str):
@@ -32,22 +27,44 @@ class PierOne:
         self.session = requests.Session()
         self.session.headers['Authorization'] = 'Bearer {}'.format(self._access_token)
 
-    def _get(self, path, *args, **kwargs) -> requests.Response:
+    def _get(self, path, exceptions: dict={}, *args, **kwargs) -> requests.Response:
         """
         GETs things from Pier One.
+
+        ``path`` will be prepended with the registry's base url.
+        ``exceptions`` is a map of status of code and exceptions to be raised if they happen.
+        Everything else is passed to the ``session.get`` request.
         """
         url = self.url + path
         response = self.session.get(url, *args, **kwargs)
-        response.raise_for_status()
+        try:
+            response.raise_for_status()
+        except requests.HTTPError as error:
+            exception = exceptions.get(error.response.status_code)
+            if exception:
+                raise exception
+            else:
+                raise
         return response
 
-    def _post(self, path, json=None, *args, **kwargs) -> requests.Response:
+    def _post(self, path, json=None, exceptions: dict={}, *args, **kwargs) -> requests.Response:
         """
         POSTs things to Pier One.
+
+        ``path`` will be prepended with the registry's base url.
+        ``exceptions`` is a map of status of code and exceptions to be raised if they happen.
+        Everything else is passed to the ``session.post`` request.
         """
         url = self.url + path
         response = self.session.post(url, json=json, *args, **kwargs)
-        response.raise_for_status()
+        try:
+            response.raise_for_status()
+        except requests.HTTPError as error:
+            exception = exceptions.get(error.response.status_code)
+            if exception:
+                raise exception
+            else:
+                raise
         return response
 
     def get_tag_info(self, image: DockerImage) -> list:
@@ -56,13 +73,7 @@ class PierOne:
         """
         path = "/teams/{}/artifacts/{}/tags/{}".format(image.team, image.artifact, image.tag)
 
-        try:
-            response = self._get(path)
-        except requests.HTTPError as error:
-            if error.response.status_code == 404:
-                # Raise ArtifactNotFound only if it the image is not found
-                raise ArtifactNotFound(image)
-            raise
+        response = self._get(path, exceptions={404: ArtifactNotFound(image)})
         tag_info = response.json()
         created_by = tag_info["created_by"]
         tag_info["created_by"] = get_user_friendly_user_name(created_by)
@@ -74,13 +85,7 @@ class PierOne:
         """
         path = "/teams/{team}/artifacts/{artifact}/tags".format(team=image.team, artifact=image.artifact)
 
-        try:
-            response = self._get(path)
-        except requests.HTTPError as error:
-            if error.response.status_code == 404:
-                # Raise ArtifactNotFound only if it the team or artifact are not found
-                raise ArtifactNotFound(image)
-            raise
+        response = self._get(path, exceptions={404: ArtifactNotFound(image)})
         return [parse_pierone_artifact_dict(entry, image.team, image.artifact)
                 for entry in response.json()]
 
@@ -89,13 +94,7 @@ class PierOne:
         GETs ``image``s scm_source
         """
         path = "/teams/{}/artifacts/{}/tags/{}/scm-source".format(image.team, image.artifact, image.tag)
-        try:
-            response = self._get(path)
-        except requests.HTTPError as error:
-            if error.response.status_code == 404:
-                # Raise ArtifactNotFound only if image is not found
-                raise ArtifactNotFound(image)
-            raise
+        response = self._get(path, exceptions={404: ArtifactNotFound(image)})
         return response.json()
 
     def get_artifacts(self, team: str):
@@ -108,13 +107,7 @@ class PierOne:
     def mark_production_ready(self, image: DockerImage, incident_id: str):
         path = "/teams/{}/artifacts/{}/tags/{}/production-ready".format(image.team, image.artifact, image.tag)
         payload = {"incident_id": incident_id}
-        try:
-            self._post(path, json=payload)
-        except requests.HTTPError as error:
-            if error.response.status_code == 404:
-                # Raise ArtifactNotFound only if it the image is not found
-                raise ArtifactNotFound(image)
-            raise
+        self._post(path, json=payload, exceptions={404: ArtifactNotFound(image)})
 
 
 # all the other paramaters are deprecated, but still here for compatibility
