@@ -9,7 +9,7 @@ import requests
 from clickclick import Action
 from zign.api import get_token
 
-from .exceptions import ArtifactNotFound
+from .exceptions import ArtifactNotFound, Forbidden
 from .types import DockerImage
 from .utils import get_user_friendly_user_name
 
@@ -27,7 +27,7 @@ class PierOne:
         self.session = requests.Session()
         self.session.headers['Authorization'] = 'Bearer {}'.format(self._access_token)
 
-    def _get(self, path, exceptions: dict={}, *args, **kwargs) -> requests.Response:
+    def _get(self, path, exceptions: dict = {}, *args, **kwargs) -> requests.Response:
         """
         GETs things from Pier One.
 
@@ -47,7 +47,7 @@ class PierOne:
                 raise
         return response
 
-    def _post(self, path, json=None, exceptions: dict={}, *args, **kwargs) -> requests.Response:
+    def _post(self, path, json=None, exceptions: dict = {}, *args, **kwargs) -> requests.Response:
         """
         POSTs things to Pier One.
 
@@ -73,7 +73,13 @@ class PierOne:
         """
         path = "/teams/{}/artifacts/{}/tags/{}".format(image.team, image.artifact, image.tag)
 
-        response = self._get(path, exceptions={404: ArtifactNotFound(image)})
+        response = self._get(
+            path,
+            exceptions={
+                403: Forbidden("get {image}'s detailed information", image=image),
+                404: ArtifactNotFound(image)
+            }
+        )
         tag_info = response.json()
         created_by = tag_info["created_by"]
         tag_info["created_by"] = get_user_friendly_user_name(created_by)
@@ -85,7 +91,13 @@ class PierOne:
         """
         path = "/teams/{team}/artifacts/{artifact}/tags".format(team=image.team, artifact=image.artifact)
 
-        response = self._get(path, exceptions={404: ArtifactNotFound(image)})
+        response = self._get(
+            path,
+            exceptions={
+                403: Forbidden("get all {image}'s tags", image=image),
+                404: ArtifactNotFound(image)
+            }
+        )
         return [parse_pierone_artifact_dict(entry, image.team, image.artifact)
                 for entry in response.json()]
 
@@ -94,7 +106,13 @@ class PierOne:
         GETs ``image``s scm_source
         """
         path = "/teams/{}/artifacts/{}/tags/{}/scm-source".format(image.team, image.artifact, image.tag)
-        response = self._get(path, exceptions={404: ArtifactNotFound(image)})
+        response = self._get(
+            path,
+            exceptions={
+                403: Forbidden("get {image}'s scm source", image=image),
+                404: ArtifactNotFound(image)
+            }
+        )
         return response.json()
 
     def get_artifacts(self, team: str):
@@ -107,7 +125,14 @@ class PierOne:
     def mark_production_ready(self, image: DockerImage, incident_id: str):
         path = "/teams/{}/artifacts/{}/tags/{}/production-ready".format(image.team, image.artifact, image.tag)
         payload = {"incident_id": incident_id}
-        self._post(path, json=payload, exceptions={404: ArtifactNotFound(image)})
+        self._post(
+            path,
+            json=payload,
+            exceptions={
+                403: Forbidden("mark {image} as production ready", image=image),
+                404: ArtifactNotFound(image)
+            }
+        )
 
 
 # all the other paramaters are deprecated, but still here for compatibility

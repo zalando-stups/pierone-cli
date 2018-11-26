@@ -10,6 +10,13 @@ def test_format_full_image_name():
     assert format_full_image_name(image_simple) == expected
 
 
+def test_format_full_image_name_without_tag():
+    expected = "\x1b[4mpierone.example.org/team/image\x1b[0m"
+    image_with_http = DockerImage("https://pierone.example.org", "team", "image", None)
+    image_simple =DockerImage("pierone.example.org", "team", "image", None)
+    assert format_full_image_name(image_with_http) == expected
+    assert format_full_image_name(image_simple) == expected
+
 def test_unformatted():
     assert markdown_2_cli("abc\ndef") == ["abc", "def"]
 
