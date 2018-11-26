@@ -39,7 +39,6 @@ class PierOne:
         else:
             raise http_error
 
-
     def _get(self, path, exceptions: dict = {}, *args, **kwargs) -> requests.Response:
         """
         GETs things from Pier One.
