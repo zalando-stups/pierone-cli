@@ -27,6 +27,19 @@ class PierOne:
         self.session = requests.Session()
         self.session.headers['Authorization'] = 'Bearer {}'.format(self._access_token)
 
+    @staticmethod
+    def _handle_exceptions(http_error: requests.HTTPError, exceptions: dict):
+        """
+        Handles HTTP exceptions by looking for ``http_error``'s status code in ``exceptions`` and
+        raising the value, if any, or re-raising the original exception if there isn't a custom one.
+        """
+        exception = exceptions.get(http_error.response.status_code)
+        if exception:
+            raise exception
+        else:
+            raise http_error
+
+
     def _get(self, path, exceptions: dict = {}, *args, **kwargs) -> requests.Response:
         """
         GETs things from Pier One.
@@ -40,11 +53,7 @@ class PierOne:
         try:
             response.raise_for_status()
         except requests.HTTPError as error:
-            exception = exceptions.get(error.response.status_code)
-            if exception:
-                raise exception
-            else:
-                raise
+            self._handle_exceptions(error, exceptions)
         return response
 
     def _post(self, path, json=None, exceptions: dict = {}, *args, **kwargs) -> requests.Response:
@@ -60,11 +69,7 @@ class PierOne:
         try:
             response.raise_for_status()
         except requests.HTTPError as error:
-            exception = exceptions.get(error.response.status_code)
-            if exception:
-                raise exception
-            else:
-                raise
+            self._handle_exceptions(error, exceptions)
         return response
 
     def get_tag_info(self, image: DockerImage) -> list:
