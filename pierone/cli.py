@@ -257,9 +257,7 @@ def describe(config, team, artifact, tag, url):
     except requests.HTTPError:
         full_name = "{}/{}/{}:{}".format(pierone_url.replace("https://", ""), team, artifact, tag)
         fatal_error("{!r} not found".format(full_name))
-
-    status = tag_info.get("status") or "Not Processed"
-    status_details = markdown_2_cli(tag_info.get("status_reason_details") or "")
+    status_details = markdown_2_cli(tag_info.get("checker_status_reason_details") or "")
 
     tag_url = "/teams/{}/artifacts/{}/tags/{}".format(image.team, image.artifact, image.tag)
     response = request(
@@ -270,31 +268,45 @@ def describe(config, team, artifact, tag, url):
     )
     scm_source = response.json() if response else None
 
+    underscore_to_title = (lambda s: s.replace('_', ' ').title() if s else "Not Processed")
+    effective_status = underscore_to_title(tag_info.get("status"))
+    checker_status = underscore_to_title(tag_info.get("checker_status"))
+
     line_size, _ = shutil.get_terminal_size(100)
     click.secho("General Information".ljust(line_size), fg='black', bg='white')
-    click.echo("Team             ┃ {}".format(team))
-    click.echo("Artifact         ┃ {}".format(artifact))
-    click.echo("Tag              ┃ {}".format(tag))
-    click.echo("Author           ┃ {created_by}".format_map(tag_info))  # TODO map author
-    click.echo("Created in       ┃ {created}".format_map(tag_info))
+    click.echo("Team                   ┃ {}".format(team))
+    click.echo("Artifact               ┃ {}".format(artifact))
+    click.echo("Tag                    ┃ {}".format(tag))
+    click.echo("Author                 ┃ {created_by}".format_map(tag_info))
+    click.echo("Created in             ┃ {created}".format_map(tag_info))
     if scm_source:
         click.secho("Commit Information".ljust(line_size), fg='black', bg='white')
-        click.echo("Repository       ┃ {url}".format_map(scm_source))
-        click.echo("Hash             ┃ {revision}".format_map(scm_source))
-        click.echo("Time             ┃ {created}".format_map(scm_source))
-        click.echo("Author           ┃ {author}".format_map(scm_source))
-        click.echo("Status           ┃ {status}".format_map(scm_source))
+        click.echo("Repository             ┃ {url}".format_map(scm_source))
+        click.echo("Hash                   ┃ {revision}".format_map(scm_source))
+        click.echo("Time                   ┃ {created}".format_map(scm_source))
+        click.echo("Author                 ┃ {author}".format_map(scm_source))
+        click.echo("Status                 ┃ {status}".format_map(scm_source))
         click.secho("Compliance Information".ljust(line_size), fg='black', bg='white')
-        click.echo("Valid SCM Source ┃ {valid}".format_map(scm_source))
+        click.echo("Valid SCM Source       ┃ {valid}".format_map(scm_source))
     else:
         click.secho("Compliance Information".ljust(line_size), fg='black', bg='white')
-        click.echo("Valid SCM Source ┃ No SCM Source")
-    click.echo("Status           ┃ {}".format(status.replace('_', ' ').title()))
-    click.echo("Status Date      ┃ {status_received_at}".format_map(tag_info))
-    click.echo("Status Reason    ┃ {status_reason_summary}".format_map(tag_info))
-    click.echo("Status Details   ┃ {}".format(status_details.pop(0) if status_details else ""))
+        click.echo("Valid SCM Source       ┃ No SCM Source")
+    click.echo("Effective Status       ┃ {}".format(effective_status))
+    click.echo("Checker Status         ┃ {}".format(checker_status))
+    click.echo("Checker Status Date    ┃ {checker_status_received_at}".format_map(tag_info))
+    click.echo("Checker Status Reason  ┃ {checker_status_reason}".format_map(tag_info))
+    click.echo("Checker Status Details ┃ {}".format(status_details.pop(0) if status_details else ""))
     for line in status_details:
-        click.echo("                 ┃ {}".format(line))
+        click.echo("                       ┃ {}".format(line))
+    if tag_info["user_status"]:
+        user_status = underscore_to_title(tag_info["user_status"])
+        click.echo("User Status            ┃ {}".format(user_status))
+        click.echo("User Status Date       ┃ {user_status_received_at}".format_map(tag_info))
+        click.echo("User Status Reason     ┃ {user_status_reason}".format_map(tag_info))
+        click.echo("User Status Issue      ┃ {user_status_issue}".format_map(tag_info))
+        click.echo("User Status Set by     ┃ {user_status_set_by}".format_map(tag_info))
+    else:
+        click.echo("User Status            ┃ Not Set")
 
 
 @cli.command()
