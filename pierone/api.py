@@ -9,7 +9,7 @@ import requests
 from clickclick import Action
 from zign.api import get_token
 
-from .exceptions import ArtifactNotFound, Forbidden
+from .exceptions import ArtifactNotFound, Forbidden, Conflict, UnprocessableEntity
 from .types import DockerImage
 from .utils import get_user_friendly_user_name
 
@@ -134,7 +134,15 @@ class PierOne:
             json=payload,
             exceptions={
                 403: Forbidden("mark {image} as production ready", image=image),
-                404: ArtifactNotFound(image)
+                404: ArtifactNotFound(image),
+                409: Conflict(
+                    "mark {image} as production ready because the flag is already set",
+                    image=image
+                ),
+                422: UnprocessableEntity(
+                    "mark {image} as production ready because it doesn't have a SCM Source",
+                    image=image
+                )
             }
         )
 

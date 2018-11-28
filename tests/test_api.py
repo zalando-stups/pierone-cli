@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, ANY
 import yaml
 import pytest
 from pierone.api import docker_login, docker_login_with_iid, PierOne, get_latest_tag, image_exists
-from pierone.exceptions import ArtifactNotFound, Forbidden
+from pierone.exceptions import ArtifactNotFound, Forbidden, UnprocessableEntity, Conflict
 from pierone.types import DockerImage
 
 import requests.exceptions
@@ -28,21 +28,6 @@ def make_error_response(status_code: int):
     response.raise_for_status.side_effect = requests.HTTPError(response=response)
     response.return_value = response
     return response
-
-
-@pytest.fixture()
-def not_found_response():
-    return make_error_response(404)
-
-
-@pytest.fixture()
-def forbidden_response():
-    return make_error_response(403)
-
-
-@pytest.fixture()
-def error_response():
-    return make_error_response(500)
 
 
 def test_docker_login(monkeypatch, tmpdir):
@@ -252,7 +237,7 @@ def test_image_not_exists(monkeypatch):
     assert data is False
 
 
-def test_get_image_tags(not_found_response, error_response, forbidden_response):
+def test_get_image_tags():
     response = MagicMock()
     response.status_code = 200
     response.json.return_value = [{'created': '2015-06-01T14:12:03.276+0000',
@@ -269,20 +254,20 @@ def test_get_image_tags(not_found_response, error_response, forbidden_response):
     assert tag['tag'] == '0.17'
     assert tag['created_by'] == 'foobar'
 
-    api.session.request = MagicMock(return_value=not_found_response)
+    api.session.request = MagicMock(return_value=make_error_response(404))
     with pytest.raises(ArtifactNotFound):
         api.get_image_tags(image)
 
-    api.session.request = MagicMock(return_value=error_response)
+    api.session.request = MagicMock(return_value=make_error_response(500))
     with pytest.raises(requests.HTTPError):
         api.get_image_tags(image)
 
-    api.session.request = MagicMock(return_value=forbidden_response)
+    api.session.request = MagicMock(return_value=make_error_response(403))
     with pytest.raises(Forbidden):
         api.get_image_tags(image)
 
 
-def test_get_tag_info(not_found_response, error_response, forbidden_response):
+def test_get_tag_info():
     response = MagicMock()
     response.status_code = 200
     response.json.return_value = {
@@ -305,21 +290,21 @@ def test_get_tag_info(not_found_response, error_response, forbidden_response):
     assert details['artifact'] == 'test'
     assert details['created_by'] == '[CDP]'
 
-    api.session.request = MagicMock(return_value=not_found_response)
+    api.session.request = MagicMock(return_value=make_error_response(404))
     with pytest.raises(ArtifactNotFound):
         api.get_tag_info(image)
 
-    api.session.request = MagicMock(return_value=error_response)
+    api.session.request = MagicMock(return_value=make_error_response(500))
     with pytest.raises(requests.HTTPError):
         api.get_tag_info(image)
 
-    api.session.request = MagicMock(return_value=forbidden_response)
+    api.session.request = MagicMock(return_value=make_error_response(403))
     with pytest.raises(Forbidden):
         api.get_tag_info(image)
 
 
 
-def test_get_scm_source(not_found_response, error_response, forbidden_response):
+def test_get_scm_source():
     response = MagicMock()
     response.status_code = 200
     response.json.return_value = {
@@ -340,15 +325,15 @@ def test_get_scm_source(not_found_response, error_response, forbidden_response):
     assert details['author'] == 'ckent'
     assert details['valid'] == True
 
-    api.session.request = MagicMock(return_value=not_found_response)
+    api.session.request = MagicMock(return_value=make_error_response(404))
     with pytest.raises(ArtifactNotFound):
         api.get_scm_source(image)
 
-    api.session.request = MagicMock(return_value=error_response)
+    api.session.request = MagicMock(return_value=make_error_response(500))
     with pytest.raises(requests.HTTPError):
         api.get_scm_source(image)
 
-    api.session.request = MagicMock(return_value=forbidden_response)
+    api.session.request = MagicMock(return_value=make_error_response(403))
     with pytest.raises(Forbidden):
         api.get_scm_source(image)
 
@@ -363,7 +348,7 @@ def test_get_artifacts():
     assert api.get_artifacts(image) == ["pierone", "piertwo", "pierthree"]
 
 
-def test_mark_production_ready(not_found_response, error_response, forbidden_response):
+def test_mark_production_ready():
     image = DockerImage(registry='registry', team='foo', artifact='bar', tag=None)
     api = PierOne('registry')
     api.session.post = MagicMock()
@@ -373,14 +358,22 @@ def test_mark_production_ready(not_found_response, error_response, forbidden_res
         json={'incident_id': 'INC-42'}
     )
 
-    api.session.post = MagicMock(return_value=not_found_response)
+    api.session.post = MagicMock(return_value=make_error_response(404))
     with pytest.raises(ArtifactNotFound):
         api.mark_production_ready(image, "INC-42")
 
-    api.session.post = MagicMock(return_value=error_response)
+    api.session.post = MagicMock(return_value=make_error_response(500))
     with pytest.raises(requests.HTTPError):
         api.mark_production_ready(image, "INC-42")
 
-    api.session.post = MagicMock(return_value=forbidden_response)
+    api.session.post = MagicMock(return_value=make_error_response(403))
     with pytest.raises(Forbidden):
+        api.mark_production_ready(image, "INC-42")
+
+    api.session.post = MagicMock(return_value=make_error_response(409))
+    with pytest.raises(Conflict):
+        api.mark_production_ready(image, "INC-42")
+
+    api.session.post = MagicMock(return_value=make_error_response(422))
+    with pytest.raises(UnprocessableEntity):
         api.mark_production_ready(image, "INC-42")
