@@ -1,8 +1,23 @@
 """
-Minimal Markdown to ANSI converter to display Compliance reports
+Functions to display things nicely.
 """
 
 import click
+from .utils import get_registry
+from .types import DockerImage
+
+
+def format_full_image_name(image: DockerImage) -> str:
+    """
+    Returns a formatted string with the full image name.
+    """
+    registry = get_registry(image.registry)  # make sure registry doesn't have http
+    full_name = "/".join((registry, image.team, image.artifact))
+    if image.tag:
+        full_name += ":{}".format(image.tag)
+
+    image = click.style(full_name, underline=True)
+    return image
 
 
 def markdown_2_cli(original: str) -> list:

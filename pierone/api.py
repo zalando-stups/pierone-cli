@@ -1,6 +1,5 @@
 import base64
 import codecs
-import collections
 import datetime
 import json
 import os
@@ -10,10 +9,9 @@ import requests
 from clickclick import Action
 from zign.api import get_token
 
-KNOWN_USERS = {
-    "credprov-cdp-controller-proxy_pierone-token": "[CDP]",
-    "credprov-cdp-controller-proxy-credentials-cdp_proxy-token": "[CDP]",
-}
+from .exceptions import ArtifactNotFound, Forbidden, Conflict, UnprocessableEntity
+from .types import DockerImage
+from .utils import get_user_friendly_user_name
 
 adapter = requests.adapters.HTTPAdapter(pool_connections=10, pool_maxsize=10)
 session = requests.Session()
@@ -21,40 +19,133 @@ session.mount('http://', adapter)
 session.mount('https://', adapter)
 
 
-class Unauthorized(Exception):
-    def __str__(self):
-        return 'Unauthorized: token missing or invalid'
+class PierOne:
 
+    def __init__(self, url: str):
+        self.url = url if url.startswith("https://") else "https://" + url
+        self._access_token = get_token('pierone', ['uid'])
+        self.session = requests.Session()
+        self.session.headers['Authorization'] = 'Bearer {}'.format(self._access_token)
 
-class DockerImage(collections.namedtuple('DockerImage', 'registry team artifact tag')):
-    @classmethod
-    def parse(cls, image: str):
-        '''
-        >>> DockerImage.parse('x')
-        Traceback (most recent call last):
-        ValueError: Invalid docker image "x" (format must be [REGISTRY/]TEAM/ARTIFACT:TAG)
-        >>> DockerImage.parse('foo/bar')
-        DockerImage(registry=None, team='foo', artifact='bar', tag='')
-        >>> DockerImage.parse('registry/foo/bar:1.9')
-        DockerImage(registry='registry', team='foo', artifact='bar', tag='1.9')
-        '''
-        parts = image.split('/')
-        if len(parts) == 3:
-            registry = parts[0]
-        elif len(parts) < 2:
-            raise ValueError('Invalid docker image "{}" (format must be [REGISTRY/]TEAM/ARTIFACT:TAG)'.format(image))
+    @staticmethod
+    def _handle_exceptions(http_error: requests.HTTPError, exceptions: dict):
+        """
+        Handles HTTP exceptions by looking for ``http_error``'s status code in ``exceptions`` and
+        raising the value, if any, or re-raising the original exception if there isn't a custom one.
+        """
+        exception = exceptions.get(http_error.response.status_code)
+        if exception:
+            raise exception
         else:
-            registry = None
-        team = parts[-2]
-        artifact, sep, tag = parts[-1].partition(':')
-        return DockerImage(registry=registry, team=team, artifact=artifact, tag=tag)
+            raise http_error
 
-    def __str__(self):
-        '''
-        >>> str(DockerImage(registry='registry', team='foo', artifact='bar', tag='1.9'))
-        'registry/foo/bar:1.9'
-        '''
-        return '{}/{}/{}:{}'.format(*tuple(self))
+    def _get(self, path, exceptions: dict = {}, *args, **kwargs) -> requests.Response:
+        """
+        GETs things from Pier One.
+
+        ``path`` will be prepended with the registry's base url.
+        ``exceptions`` is a map of status of code and exceptions to be raised if they happen.
+        Everything else is passed to the ``session.get`` request.
+        """
+        url = self.url + path
+        response = self.session.get(url, *args, **kwargs)
+        try:
+            response.raise_for_status()
+        except requests.HTTPError as error:
+            self._handle_exceptions(error, exceptions)
+        return response
+
+    def _post(self, path, json=None, exceptions: dict = None, *args, **kwargs) -> requests.Response:
+        """
+        POSTs things to Pier One.
+
+        ``path`` will be prepended with the registry's base url.
+        ``exceptions`` is a map of status of code and exceptions to be raised if they happen.
+        Everything else is passed to the ``session.post`` request.
+        """
+        exceptions = exceptions or {}
+        url = self.url + path
+        response = self.session.post(url, json=json, *args, **kwargs)
+        try:
+            response.raise_for_status()
+        except requests.HTTPError as error:
+            self._handle_exceptions(error, exceptions)
+        return response
+
+    def get_tag_info(self, image: DockerImage) -> list:
+        """
+        Gets detailed tag information
+        """
+        path = "/teams/{}/artifacts/{}/tags/{}".format(image.team, image.artifact, image.tag)
+
+        response = self._get(
+            path,
+            exceptions={
+                403: Forbidden("get {image}'s detailed information", image=image),
+                404: ArtifactNotFound(image)
+            }
+        )
+        tag_info = response.json()
+        created_by = tag_info["created_by"]
+        tag_info["created_by"] = get_user_friendly_user_name(created_by)
+        return tag_info
+
+    def get_image_tags(self, image: DockerImage) -> list:
+        """
+        Gets all tags for an image.
+        """
+        path = "/teams/{team}/artifacts/{artifact}/tags".format(team=image.team, artifact=image.artifact)
+
+        response = self._get(
+            path,
+            exceptions={
+                403: Forbidden("get all {image}'s tags", image=image),
+                404: ArtifactNotFound(image)
+            }
+        )
+        return [parse_pierone_artifact_dict(entry, image.team, image.artifact)
+                for entry in response.json()]
+
+    def get_scm_source(self, image: DockerImage) -> dict:
+        """
+        GETs ``image``s scm_source
+        """
+        path = "/teams/{}/artifacts/{}/tags/{}/scm-source".format(image.team, image.artifact, image.tag)
+        response = self._get(
+            path,
+            exceptions={
+                403: Forbidden("get {image}'s scm source", image=image),
+                404: ArtifactNotFound(image)
+            }
+        )
+        return response.json()
+
+    def get_artifacts(self, team: str):
+        """
+        GETs all ``teams``'s artifacts.
+        """
+        response = self._get('/teams/{}/artifacts'.format(team))
+        return response.json()
+
+    def mark_production_ready(self, image: DockerImage, incident_id: str):
+        path = "/teams/{}/artifacts/{}/tags/{}/production-ready".format(image.team, image.artifact, image.tag)
+        payload = {"incident_id": incident_id}
+        self._post(
+            path,
+            json=payload,
+            exceptions={
+                403: Forbidden("mark {image} as production ready", image=image),
+                404: ArtifactNotFound(image),
+                409: Conflict(
+                    "mark {image} as production ready because the flag is already set",
+                    image=image
+                ),
+                422: UnprocessableEntity(
+                    "mark {image} as production ready because it doesn't have a SCM Source",
+                    image=image
+                )
+            }
+        )
 
 
 # all the other paramaters are deprecated, but still here for compatibility
@@ -140,39 +231,6 @@ def image_exists(image: DockerImage, token: str = None) -> bool:
     return image.tag in result
 
 
-def get_image_tag(image: DockerImage, token: str = None) -> dict:
-    tags = get_image_tags(image, token) or []
-    for entry in tags:
-        if entry['tag'] == image.tag:
-            return entry
-    return None
-
-
-def get_image_tags(image: DockerImage, token: str = None) -> list:
-    url = 'https://{}'.format(image.registry)
-    path = '/teams/{team}/artifacts/{artifact}/tags'.format(team=image.team, artifact=image.artifact)
-
-    response = request(url, path, token, True)
-    if response is None:
-        return None
-    return [parse_pierone_artifact_dict(entry, image.team, image.artifact)
-            for entry in response.json()]
-
-
-def get_tag_info(image: DockerImage, token: str = None) -> list:
-    """
-    Gets detailed tag information
-    """
-    url = "https://{}".format(image.registry)
-    path = "/teams/{}/artifacts/{}/tags/{}".format(image.team, image.artifact, image.tag)
-
-    response = request(url, path, token, False)
-    tag_info = response.json()
-    created_by = tag_info['created_by']
-    tag_info['created_by'] = KNOWN_USERS.get(created_by, created_by)
-    return tag_info
-
-
 def get_latest_tag(image: DockerImage, token: str = None) -> bool:
     url = 'https://{}'.format(image.registry)
     path = '/teams/{team}/artifacts/{artifact}/tags'.format(team=image.team, artifact=image.artifact)
@@ -207,7 +265,7 @@ def parse_pierone_artifact_dict(original_payload_from_api, team, artifact) -> di
     parsed_dict['artifact'] = artifact
     parsed_dict['tag'] = original_payload_from_api['name']
     created_by = original_payload_from_api['created_by']
-    parsed_dict['created_by'] = KNOWN_USERS.get(created_by, created_by)
+    parsed_dict['created_by'] = get_user_friendly_user_name(created_by)
     parsed_dict['created_time'] = parse_time(original_payload_from_api['created'])
     status_received_at = original_payload_from_api.get('status_received_at')
     parsed_dict['status_time'] = parse_time(status_received_at) if status_received_at else 'N/A'

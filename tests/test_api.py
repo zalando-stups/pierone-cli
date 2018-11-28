@@ -4,10 +4,30 @@ from unittest.mock import MagicMock, ANY
 
 import yaml
 import pytest
-from pierone.api import (DockerImage, docker_login, get_image_tag, docker_login_with_iid,
-                         get_image_tags, get_latest_tag, image_exists)
+from pierone.api import docker_login, docker_login_with_iid, PierOne, get_latest_tag, image_exists
+from pierone.exceptions import ArtifactNotFound, Forbidden, UnprocessableEntity, Conflict
+from pierone.types import DockerImage
 
 import requests.exceptions
+
+
+@pytest.fixture(autouse=True)
+def valid_pierone_url(monkeypatch):
+    response = MagicMock()
+    response.text = 'Pier One API'
+    monkeypatch.setattr('requests.get', lambda *args, **kw: response)
+
+
+@pytest.fixture(autouse=True)
+def mock_get_token(monkeypatch):
+    monkeypatch.setattr('pierone.api.get_token', MagicMock(return_value="12377"))
+
+
+def make_error_response(status_code: int):
+    response = MagicMock(status_code=status_code)
+    response.raise_for_status.side_effect = requests.HTTPError(response=response)
+    response.return_value = response
+    return response
 
 
 def test_docker_login(monkeypatch, tmpdir):
@@ -23,7 +43,6 @@ def test_docker_login(monkeypatch, tmpdir):
 
 def test_docker_login_with_credsstore(monkeypatch, tmpdir):
     monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
-    monkeypatch.setattr('pierone.api.get_token', MagicMock(return_value='12377'))
     path = os.path.expanduser('~/.docker/config.json')
     os.makedirs(os.path.dirname(path))
     with open(path, 'w') as fd:
@@ -218,16 +237,16 @@ def test_image_not_exists(monkeypatch):
     assert data is False
 
 
-def test_get_image_tags(monkeypatch):
+def test_get_image_tags():
     response = MagicMock()
     response.status_code = 200
     response.json.return_value = [{'created': '2015-06-01T14:12:03.276+0000',
                                    'created_by': 'foobar',
                                    'name': '0.17'}]
-    monkeypatch.setattr('pierone.api.session.request', MagicMock(return_value=response))
     image = DockerImage(registry='registry', team='foo', artifact='bar', tag=None)
-
-    image_tags = get_image_tags(image)
+    api = PierOne('registry')
+    api.session.request = MagicMock(return_value=response)
+    image_tags = api.get_image_tags(image)
     tag = image_tags[0]
 
     assert tag['team'] == 'foo'
@@ -235,37 +254,126 @@ def test_get_image_tags(monkeypatch):
     assert tag['tag'] == '0.17'
     assert tag['created_by'] == 'foobar'
 
+    api.session.request = MagicMock(return_value=make_error_response(404))
+    with pytest.raises(ArtifactNotFound):
+        api.get_image_tags(image)
+
+    api.session.request = MagicMock(return_value=make_error_response(500))
+    with pytest.raises(requests.HTTPError):
+        api.get_image_tags(image)
+
+    api.session.request = MagicMock(return_value=make_error_response(403))
+    with pytest.raises(Forbidden):
+        api.get_image_tags(image)
 
 
-def test_get_image_tag(monkeypatch):
+def test_get_tag_info():
     response = MagicMock()
     response.status_code = 200
-    response.json.return_value = [{'created': '2015-06-01T14:12:03.276+0000',
-                                   'created_by': 'foobar',
-                                   'name': '0.17'},
-                                  {'created': '2015-06-11T16:13:29.152+0000',
-                                   'created_by': 'foobar',
-                                   'name': '0.22'}]
-    monkeypatch.setattr('pierone.api.session.request', MagicMock(return_value=response))
-    image = DockerImage(registry='registry', team='foo', artifact='bar', tag='0.22')
+    response.json.return_value = {
+        "artifact": "test",
+        "created": "2018-08-27T13:15:28.968Z",
+        "created_by": "credprov-cdp-controller-proxy_pierone-token",
+        "image": "sha256:2ee6f0b4d7313903fdf3d326dacfc4c711da339ab3a12ccdd78e18e17daa6eb1",
+        "name": "pr-1-1",
+        "status": "test_status",
+        "status_reason_details": "test_status",
+        "status_reason_summary": "test_status",
+        "status_received_at": "2018-08-27T13:15:28.968Z"
+    }
 
-    tag = get_image_tag(image)
+    image = DockerImage(registry='registry', team='foo', artifact='bar', tag=None)
+    api = PierOne('registry')
+    api.session.request = MagicMock(return_value=response)
+    details = api.get_tag_info(image)
 
-    assert tag['team'] == 'foo'
-    assert tag['artifact'] == 'bar'
-    assert tag['tag'] == '0.22'
-    assert tag['created_by'] == 'foobar'
-    assert tag['status'] == "Not Processed"
+    assert details['artifact'] == 'test'
+    assert details['created_by'] == '[CDP]'
+
+    api.session.request = MagicMock(return_value=make_error_response(404))
+    with pytest.raises(ArtifactNotFound):
+        api.get_tag_info(image)
+
+    api.session.request = MagicMock(return_value=make_error_response(500))
+    with pytest.raises(requests.HTTPError):
+        api.get_tag_info(image)
+
+    api.session.request = MagicMock(return_value=make_error_response(403))
+    with pytest.raises(Forbidden):
+        api.get_tag_info(image)
 
 
 
-def test_get_image_tag_that_does_not_exist(monkeypatch):
+def test_get_scm_source():
     response = MagicMock()
     response.status_code = 200
-    response.json.return_value = [{'created': '2015-06-01T14:12:03.276+0000',
-                                   'created_by': 'foobar',
-                                   'name': '0.17'}]
-    monkeypatch.setattr('pierone.api.session.request', MagicMock(return_value=response))
-    image = DockerImage(registry='registry', team='foo', artifact='bar', tag='1.22')
+    response.json.return_value = {
+        "author": "ckent",
+        "created": "2038-11-06T14:58:58.792Z",
+        "revision": "6e6bb8c5a95ebb8b447b5516c292467d098c2a758",
+        "status": "",
+        "url": "git:git@github.bus.zalan.do:continuous-delivery/cdp-builder.git",
+        "valid": True
+    }
 
-    assert get_image_tag(image) is None
+
+    image = DockerImage(registry='registry', team='foo', artifact='bar', tag='42')
+    api = PierOne('registry')
+    api.session.request = MagicMock(return_value=response)
+    details = api.get_scm_source(image)
+
+    assert details['author'] == 'ckent'
+    assert details['valid'] == True
+
+    api.session.request = MagicMock(return_value=make_error_response(404))
+    with pytest.raises(ArtifactNotFound):
+        api.get_scm_source(image)
+
+    api.session.request = MagicMock(return_value=make_error_response(500))
+    with pytest.raises(requests.HTTPError):
+        api.get_scm_source(image)
+
+    api.session.request = MagicMock(return_value=make_error_response(403))
+    with pytest.raises(Forbidden):
+        api.get_scm_source(image)
+
+def test_get_artifacts():
+    response = MagicMock()
+    response.status_code = 200
+    response.json.return_value = ["pierone", "piertwo", "pierthree"]
+
+    image = DockerImage(registry='registry', team='foo', artifact='bar', tag=None)
+    api = PierOne('registry')
+    api.session.request = MagicMock(return_value=response)
+    assert api.get_artifacts(image) == ["pierone", "piertwo", "pierthree"]
+
+
+def test_mark_production_ready():
+    image = DockerImage(registry='registry', team='foo', artifact='bar', tag=None)
+    api = PierOne('registry')
+    api.session.post = MagicMock()
+    api.mark_production_ready(image, "INC-42")
+    api.session.post.assert_called_once_with(
+        'https://registry/teams/foo/artifacts/bar/tags/None/production-ready',
+        json={'incident_id': 'INC-42'}
+    )
+
+    api.session.post = MagicMock(return_value=make_error_response(404))
+    with pytest.raises(ArtifactNotFound):
+        api.mark_production_ready(image, "INC-42")
+
+    api.session.post = MagicMock(return_value=make_error_response(500))
+    with pytest.raises(requests.HTTPError):
+        api.mark_production_ready(image, "INC-42")
+
+    api.session.post = MagicMock(return_value=make_error_response(403))
+    with pytest.raises(Forbidden):
+        api.mark_production_ready(image, "INC-42")
+
+    api.session.post = MagicMock(return_value=make_error_response(409))
+    with pytest.raises(Conflict):
+        api.mark_production_ready(image, "INC-42")
+
+    api.session.post = MagicMock(return_value=make_error_response(422))
+    with pytest.raises(UnprocessableEntity):
+        api.mark_production_ready(image, "INC-42")
