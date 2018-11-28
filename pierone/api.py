@@ -55,7 +55,7 @@ class PierOne:
             self._handle_exceptions(error, exceptions)
         return response
 
-    def _post(self, path, json=None, exceptions: dict = {}, *args, **kwargs) -> requests.Response:
+    def _post(self, path, json=None, exceptions: dict = None, *args, **kwargs) -> requests.Response:
         """
         POSTs things to Pier One.
 
@@ -63,6 +63,7 @@ class PierOne:
         ``exceptions`` is a map of status of code and exceptions to be raised if they happen.
         Everything else is passed to the ``session.post`` request.
         """
+        exceptions = exceptions or {}
         url = self.url + path
         response = self.session.post(url, json=json, *args, **kwargs)
         try:
