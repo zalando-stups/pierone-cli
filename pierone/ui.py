@@ -2,6 +2,7 @@
 Functions to display things nicely.
 """
 
+import collections
 import shutil
 
 import click
@@ -22,7 +23,7 @@ def format_full_image_name(image: DockerImage) -> str:
     return image
 
 
-def markdown_2_cli(original: str) -> list:
+def markdown_2_cli(original: str) -> str:
     """
     Gets a markdown string and returns a list of formatted lines using ANSI styles and unicode.
     """
@@ -38,11 +39,35 @@ def markdown_2_cli(original: str) -> list:
             result.append('☐ ' + line[6:])
         else:
             result.append(line.replace('Gandalf', '🧙 Gandalf'))
-    return result
+    return '\n'.join(result)
 
-def print_header(title):
-    line_size, _ = shutil.get_terminal_size(100)
-    click.secho(title.ljust(line_size), reverse=True)
 
-def print_key_value(key: str, value, max_key_size: int):
-    click.echo("{key:<{key_size}} ┃ {value}".format(key=key, value=value, key_size=max_key_size))
+class DetailsBox:
+
+    def __init__(self):
+        self._max_key_size = 1
+        self._sections = collections.OrderedDict()
+        self._line_size, _ = shutil.get_terminal_size(100)
+
+    def _print_header(self, title):
+        click.secho(title.ljust(self._line_size), reverse=True)
+
+    def _print_key_value(self, key: str, value):
+        click.echo("{key:<{key_size}} ┃ {value}".format(
+            key=key, value=value, key_size=self._max_key_size)
+        )
+
+    def set(self, section: str, key: str, value):
+        if section not in self._sections:
+            self._sections[section] = collections.OrderedDict()
+        self._sections[section][key] = value
+        self._max_key_size = max(self._max_key_size, len(key))
+
+    def render(self):
+        for section, entries in self._sections.items():
+            self._print_header(section)
+            for key, value in entries.items():
+                lines = str(value).splitlines() or [""]  # make sure we always have 1 "line"
+                self._print_key_value(key, lines.pop(0))
+                for line in lines:
+                    self._print_key_value("", line)
