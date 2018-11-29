@@ -89,5 +89,5 @@ Multiple Lines Details ┃ All work and no play makes Johny a dull boy
     assert len(box._sections) == 3
     box._line_size = 9  # To make it easier to test output
     box.render()
-    captured = capsys.readouterr()
-    assert captured.out == expected
+    output, _ = capsys.readouterr()
+    assert output == expected
