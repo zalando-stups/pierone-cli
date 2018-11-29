@@ -135,7 +135,7 @@ def setup_package():
         install_requires=install_reqs,
         setup_requires=['six', 'flake8'],
         cmdclass=cmdclass,
-        tests_require=['pytest-cov', 'pytest', "hypothesis"],
+        tests_require=['pytest-cov', 'pytest>=3.3', "hypothesis"],
         command_options=command_options,
         entry_points={'console_scripts': CONSOLE_SCRIPTS},
     )
