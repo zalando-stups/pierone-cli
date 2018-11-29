@@ -1,5 +1,4 @@
 import os
-import shutil
 import tarfile
 import tempfile
 
@@ -14,7 +13,7 @@ from requests import RequestException
 
 from .api import PierOne, docker_login, get_latest_tag, parse_time, request
 from .exceptions import PieroneException, ArtifactNotFound
-from .ui import format_full_image_name, markdown_2_cli
+from .ui import DetailsBox, format_full_image_name, markdown_2_cli
 from .utils import get_registry
 from .validators import validate_incident_id, validate_team
 from .types import DockerImage
@@ -264,41 +263,44 @@ def describe(config, team, artifact, tag, url):
     checker_status = underscore_to_title(tag_info.get("checker_status"))
     status_details = markdown_2_cli(tag_info.get("checker_status_reason_details") or "")
 
-    line_size, _ = shutil.get_terminal_size(100)
-    click.secho("General Information".ljust(line_size), fg='black', bg='white')
-    click.echo("Team                   ┃ {}".format(team))
-    click.echo("Artifact               ┃ {}".format(artifact))
-    click.echo("Tag                    ┃ {}".format(tag))
-    click.echo("Author                 ┃ {created_by}".format_map(tag_info))
-    click.echo("Created in             ┃ {created}".format_map(tag_info))
+    details_box = DetailsBox()
+    details_box.set("General Information", "Team", team)
+    details_box.set("General Information", "Artifact", artifact)
+    details_box.set("General Information", "Tag", tag)
+    details_box.set("General Information", "Author", tag_info["created_by"])
+    details_box.set("General Information", "Created in", tag_info["created"])
     if scm_source:
-        click.secho("Commit Information".ljust(line_size), fg='black', bg='white')
-        click.echo("Repository             ┃ {url}".format_map(scm_source))
-        click.echo("Hash                   ┃ {revision}".format_map(scm_source))
-        click.echo("Time                   ┃ {created}".format_map(scm_source))
-        click.echo("Author                 ┃ {author}".format_map(scm_source))
-        click.echo("Status                 ┃ {status}".format_map(scm_source))
-        click.secho("Compliance Information".ljust(line_size), fg='black', bg='white')
-        click.echo("Valid SCM Source       ┃ {valid}".format_map(scm_source))
+        details_box.set("Commit Information", "Repository", scm_source["url"])
+        details_box.set("Commit Information", "Hash", scm_source["revision"])
+        details_box.set("Commit Information", "Time", scm_source["created"])
+        details_box.set("Commit Information", "Author", scm_source["author"])
+        details_box.set("Commit Information", "Status", scm_source["status"])
+        details_box.set("Compliance Information", "Valid SCM Source", scm_source["valid"])
     else:
-        click.secho("Compliance Information".ljust(line_size), fg='black', bg='white')
-        click.echo("Valid SCM Source       ┃ No SCM Source")
-    click.echo("Effective Status       ┃ {}".format(effective_status))
-    click.echo("Checker Status         ┃ {}".format(checker_status))
-    click.echo("Checker Status Date    ┃ {checker_status_received_at}".format_map(tag_info))
-    click.echo("Checker Status Reason  ┃ {checker_status_reason}".format_map(tag_info))
-    click.echo("Checker Status Details ┃ {}".format(status_details.pop(0) if status_details else ""))
-    for line in status_details:
-        click.echo("                       ┃ {}".format(line))
-    if tag_info["user_status"]:
+        details_box.set("Compliance Information", "Valid SCM Source", "No SCM Source")
+    details_box.set("Compliance Information", "Effective Status", effective_status)
+    details_box.set("Compliance Information", "Checker Status", checker_status)
+    details_box.set("Compliance Information", "Checker Status Date", tag_info["checker_status_received_at"])
+    details_box.set("Compliance Information", "Checker Status Reason", tag_info["checker_status_reason"])
+    # TODO make markdown function return a string
+    details_box.set("Compliance Information", "Checker Status Details", status_details if status_details else "")
+    if tag_info.get("user_status"):
         user_status = underscore_to_title(tag_info["user_status"])
-        click.echo("User Status            ┃ {}".format(user_status))
-        click.echo("User Status Date       ┃ {user_status_received_at}".format_map(tag_info))
-        click.echo("User Status Reason     ┃ {user_status_reason}".format_map(tag_info))
-        click.echo("User Status Issue      ┃ {user_status_issue}".format_map(tag_info))
-        click.echo("User Status Set by     ┃ {user_status_set_by}".format_map(tag_info))
+        details_box.set("Compliance Information", "User Status", user_status)
+        details_box.set("Compliance Information", "User Status Date", tag_info["user_status_received_at"])
+        details_box.set("Compliance Information", "User Status Reason", tag_info["user_status_reason"])
+        details_box.set("Compliance Information", "User Status Issue", tag_info["user_status_issue"])
+        details_box.set("Compliance Information", "User Status Set by", tag_info["user_status_set_by"])
     else:
-        click.echo("User Status            ┃ Not Set")
+        details_box.set("Compliance Information", "User Status", "Not Set")
+    if tag_info.get("emergency_status"):
+        emergency_status = underscore_to_title(tag_info["emergency_status"])
+        details_box.set("Compliance Information", "Emergency Status", emergency_status)
+        details_box.set("Compliance Information", "Emergency Status Date", tag_info["emergency_status_received_at"])
+        details_box.set("Compliance Information", "Emergency Status Reason", tag_info["emergency_status_reason"])
+    else:
+        details_box.set("Compliance Information", "Emergency Status", "Not Set")
+    details_box.render()
 
 
 @cli.command()
