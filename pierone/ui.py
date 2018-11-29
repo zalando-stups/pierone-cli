@@ -47,7 +47,8 @@ class DetailsBox:
     def __init__(self):
         self._max_key_size = 1
         self._sections = collections.OrderedDict()
-        self._line_size, _ = shutil.get_terminal_size(100)
+        self._line_size, _ = shutil.get_terminal_size((100, 42))
+
 
     def _print_header(self, title):
         click.secho(title.ljust(self._line_size), reverse=True)
