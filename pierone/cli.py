@@ -1,5 +1,4 @@
 import os
-import shutil
 import tarfile
 import tempfile
 
@@ -14,7 +13,7 @@ from requests import RequestException
 
 from .api import PierOne, docker_login, get_latest_tag, parse_time, request
 from .exceptions import PieroneException, ArtifactNotFound
-from .ui import format_full_image_name, markdown_2_cli, print_header, print_key_value
+from .ui import DetailsBox, format_full_image_name, markdown_2_cli
 from .utils import get_registry
 from .validators import validate_incident_id, validate_team
 from .types import DockerImage
@@ -264,49 +263,44 @@ def describe(config, team, artifact, tag, url):
     checker_status = underscore_to_title(tag_info.get("checker_status"))
     status_details = markdown_2_cli(tag_info.get("checker_status_reason_details") or "")
 
-    biggest_key_size = len("Emergency Status Reason")
-    print_header("General Information")
-    print_key_value("Team", team, biggest_key_size)
-    print_key_value("Artifact", artifact, biggest_key_size)
-    print_key_value("Tag", tag, biggest_key_size)
-    print_key_value("Author", tag_info["created_by"], biggest_key_size)
-    print_key_value("Created in", tag_info["created"], biggest_key_size)
+    details_box = DetailsBox()
+    details_box.set("General Information", "Team", team)
+    details_box.set("General Information", "Artifact", artifact)
+    details_box.set("General Information", "Tag", tag)
+    details_box.set("General Information", "Author", tag_info["created_by"])
+    details_box.set("General Information", "Created in", tag_info["created"])
     if scm_source:
-        print_header("Commit Information")
-        print_key_value("Repository", scm_source["url"], biggest_key_size)
-        print_key_value("Hash",  scm_source["revision"], biggest_key_size)
-        print_key_value("Time", scm_source["created"], biggest_key_size)
-        print_key_value("Author", scm_source["author"], biggest_key_size)
-        print_key_value("Status in", scm_source["status"], biggest_key_size)
-        print_header("Compliance Information")
-        print_key_value("Valid SCM Source", scm_source["valid"], biggest_key_size)
+        details_box.set("Commit Information", "Repository", scm_source["url"])
+        details_box.set("Commit Information", "Hash", scm_source["revision"])
+        details_box.set("Commit Information", "Time", scm_source["created"])
+        details_box.set("Commit Information", "Author", scm_source["author"])
+        details_box.set("Commit Information", "Status", scm_source["status"])
+        details_box.set("Compliance Information", "Valid SCM Source", scm_source["valid"])
     else:
-        print_header("Compliance Information")
-        print_key_value("Valid SCM Source", "No SCM Source", biggest_key_size)
-    print_key_value("Effective Status", effective_status, biggest_key_size)
-    print_key_value("Checker Status",checker_status, biggest_key_size)
-    print_key_value("Checker Status Date", tag_info["checker_status_received_at"], biggest_key_size)
-    print_key_value("Checker Status Reason", tag_info["checker_status_reason"], biggest_key_size)
-    print_key_value("Checker Status Details", status_details.pop(0) if status_details else "", biggest_key_size)
-    for line in status_details:
-        print_key_value("", line, biggest_key_size)
+        details_box.set("Compliance Information", "Valid SCM Source", "No SCM Source")
+    details_box.set("Compliance Information", "Effective Status", effective_status)
+    details_box.set("Compliance Information", "Checker Status", checker_status)
+    details_box.set("Compliance Information", "Checker Status Date", tag_info["checker_status_received_at"])
+    details_box.set("Compliance Information", "Checker Status Reason", tag_info["checker_status_reason"])
+    # TODO make markdown function return a string
+    details_box.set("Compliance Information", "Checker Status Details", status_details if status_details else "")
     if tag_info.get("user_status"):
         user_status = underscore_to_title(tag_info["user_status"])
-        print_key_value("User Status", user_status, biggest_key_size)
-        print_key_value("User Status Date", tag_info["user_status_received_at"], biggest_key_size)
-        print_key_value("User Status Reason", tag_info["user_status_reason"], biggest_key_size)
-        print_key_value("User Status Issue", tag_info["user_status_issue"], biggest_key_size)
-        print_key_value("User Status Set by", tag_info["user_status_set_by"], biggest_key_size)
-        # TODO automate box printing
+        details_box.set("Compliance Information", "User Status", user_status)
+        details_box.set("Compliance Information", "User Status Date", tag_info["user_status_received_at"])
+        details_box.set("Compliance Information", "User Status Reason", tag_info["user_status_reason"])
+        details_box.set("Compliance Information", "User Status Issue", tag_info["user_status_issue"])
+        details_box.set("Compliance Information", "User Status Set by", tag_info["user_status_set_by"])
     else:
-        print_key_value("User Status", "Not Set", biggest_key_size)
+        details_box.set("Compliance Information", "User Status", "Not Set")
     if tag_info.get("emergency_status"):
         emergency_status = underscore_to_title(tag_info["emergency_status"])
-        print_key_value("Emergency Status", emergency_status, biggest_key_size)
-        print_key_value("Emergency Status Date", tag_info["emergency_status_received_at"], biggest_key_size)
-        print_key_value("Emergency Status Reason", tag_info["emergency_status_reason"], biggest_key_size)
+        details_box.set("Compliance Information", "Emergency Status", emergency_status)
+        details_box.set("Compliance Information", "Emergency Status Date", tag_info["emergency_status_received_at"])
+        details_box.set("Compliance Information", "Emergency Status Reason", tag_info["emergency_status_reason"])
     else:
-        print_key_value("Emergency Status", "Not Set", biggest_key_size)
+        details_box.set("Compliance Information", "Emergency Status", "Not Set")
+    details_box.render()
 
 
 @cli.command()
