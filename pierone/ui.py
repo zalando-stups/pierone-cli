@@ -2,6 +2,8 @@
 Functions to display things nicely.
 """
 
+import shutil
+
 import click
 from .utils import get_registry
 from .types import DockerImage
@@ -37,3 +39,10 @@ def markdown_2_cli(original: str) -> list:
         else:
             result.append(line.replace('Gandalf', '🧙 Gandalf'))
     return result
+
+def print_header(title):
+    line_size, _ = shutil.get_terminal_size(100)
+    click.secho(title.ljust(line_size), reverse=True)
+
+def print_key_value(key: str, value, max_key_size: int):
+    click.echo("{key:<{key_size}} ┃ {value}".format(key=key, value=value, key_size=max_key_size))
