@@ -83,7 +83,7 @@ class PyTest(TestCommand):
     def run_tests(self):
         try:
             import pytest
-        except Exception as e:
+        except Exception:
             raise RuntimeError('py.test is not installed, run: pip install pytest')
         params = {'args': self.test_args}
         if self.cov:
@@ -135,7 +135,7 @@ def setup_package():
         install_requires=install_reqs,
         setup_requires=['six', 'flake8'],
         cmdclass=cmdclass,
-        tests_require=['pytest-cov', 'pytest'],
+        tests_require=['pytest-cov', 'pytest', "hypothesis"],
         command_options=command_options,
         entry_points={'console_scripts': CONSOLE_SCRIPTS},
     )

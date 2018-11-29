@@ -1,5 +1,4 @@
 import os
-import re
 import tarfile
 import tempfile
 
@@ -9,13 +8,15 @@ import requests
 import stups_cli.config
 import zign.api
 import sys
-from clickclick import (AliasedGroup, OutputFormat, UrlType, error,
-                        fatal_error, print_table)
+from clickclick import AliasedGroup, OutputFormat, UrlType, error, fatal_error, print_table
 from requests import RequestException
 
-from .api import (DockerImage, Unauthorized, docker_login, get_image_tags,
-                  get_latest_tag, parse_time, request)
-from .exceptions import PieroneException
+from .api import PierOne, docker_login, get_latest_tag, parse_time, request
+from .exceptions import PieroneException, ArtifactNotFound
+from .ui import DetailsBox, format_full_image_name, markdown_2_cli
+from .utils import get_registry
+from .validators import validate_incident_id, validate_team
+from .types import DockerImage
 
 KEYRING_KEY = 'pierone'
 
@@ -25,16 +26,6 @@ output_option = click.option('-o', '--output', type=click.Choice(['text', 'json'
                              help='Use alternative output format')
 
 url_option = click.option('--url', help='Pier One URL', metavar='URI')
-
-TEAM_PATTERN_STR = r'[a-z][a-z0-9-]+'
-TEAM_PATTERN = re.compile(r'^{}$'.format(TEAM_PATTERN_STR))
-
-
-def validate_team(ctx, param, value):
-    if not TEAM_PATTERN.match(value):
-        msg = 'Team ID must satisfy regular expression pattern "{}"'.format(TEAM_PATTERN_STR)
-        raise click.BadParameter(msg)
-    return value
 
 
 def print_version(ctx, param, value):
@@ -64,7 +55,7 @@ def set_pierone_url(config: dict, url: str) -> None:
 
         try:
             requests.get(url, timeout=5)
-        except Exception as e:
+        except Exception:
             error('Could not reach {}'.format(url))
             url = None
 
@@ -127,11 +118,6 @@ def teams(config, output, url):
         print_table(['name'], rows)
 
 
-def get_artifacts(url, team: str, access_token):
-    r = request(url, '/teams/{}/artifacts'.format(team), access_token)
-    return r.json()
-
-
 def get_tags(url, team, art, access_token):
     r = request(url, '/teams/{}/artifacts/{}/tags'.format(team, art), access_token, True)
     if r is None:
@@ -140,29 +126,16 @@ def get_tags(url, team, art, access_token):
     return r.json()
 
 
-def get_clair_features(clair_details_url, access_token):
-    if not clair_details_url:
-        return []
-
-    r = request(clair_details_url, '?vulnerabilities&features', access_token, True)
-    if r is None:
-        # empty list of tags (layer does not exist)
-        return []
-
-    return r.json()['Layer'].get('Features', [])
-
-
 @cli.command()
 @click.argument('team', callback=validate_team)
 @url_option
 @output_option
 @click.pass_obj
 def artifacts(config, team, url, output):
-    '''List all team artifacts'''
-    set_pierone_url(config, url)
-    token = get_token()
-
-    result = get_artifacts(config.get('url'), team, token)
+    """List all team artifacts"""
+    url = set_pierone_url(config, url)
+    api = PierOne(url)
+    result = api.get_artifacts(team)
     rows = [{'team': team, 'artifact': name} for name in sorted(result)]
     with OutputFormat(output):
         print_table(['team', 'artifact'], rows)
@@ -177,23 +150,19 @@ def artifacts(config, team, url, output):
 @click.pass_obj
 def tags(config, team: str, artifact, url, output, limit):
     '''List all tags for a given team'''
-    set_pierone_url(config, url)
-    token = get_token()
+    registry = set_pierone_url(config, url)
+    api = PierOne(registry)
 
     if limit is None:
         # show 20 rows if artifact was given, else show only 3
         limit = 20 if artifact else 3
 
     if not artifact:
-        artifact = get_artifacts(config.get('url'), team, token)
+        artifact = api.get_artifacts(team)
         if not artifact:
             raise click.UsageError('The Team you are looking for does not exist or '
                                    'we could not find any artifacts registered in Pierone! '
                                    'Please double check for spelling mistakes.')
-
-    registry = config.get('url')
-    if registry.startswith('https://'):
-        registry = registry[8:]
 
     slice_from = - limit
 
@@ -201,13 +170,11 @@ def tags(config, team: str, artifact, url, output, limit):
     for art in artifact:
         image = DockerImage(registry=registry, team=team, artifact=art, tag=None)
         try:
-            tags = get_image_tags(image, token)
-        except Unauthorized as e:
-            raise click.ClickException(str(e))
+            tags = api.get_image_tags(image)
+        except ArtifactNotFound:
+            raise click.UsageError("Artifact or Team does not exist! "
+                                   "Please double check for spelling mistakes.")
         else:
-            if not tags:
-                raise click.UsageError('Artifact or Team does not exist! '
-                                       'Please double check for spelling mistakes.')
             rows.extend(tags[slice_from:])
 
     # sorts are guaranteed to be stable, i.e. tags will be sorted by time (as returned from REST service)
@@ -215,10 +182,24 @@ def tags(config, team: str, artifact, url, output, limit):
 
     with OutputFormat(output):
         titles = {
-            'created_time': 'Created',
-            'created_by': 'By'
+            "created_time": "Created",
+            "created_by": "By",
+            "status_reason_summary": "Status Reason",
         }
-        print_table(['team', 'artifact', 'tag', 'created_time', 'created_by', 'trusted'], rows, titles=titles)
+        print_table(
+            [
+                "team",
+                "artifact",
+                "tag",
+                "created_time",
+                "created_by",
+                "trusted",
+                "status",
+                "status_reason_summary",
+            ],
+            rows,
+            titles=titles
+        )
 
 
 @cli.command()
@@ -229,8 +210,97 @@ def tags(config, team: str, artifact, url, output, limit):
 @output_option
 @click.pass_obj
 def cves(config, team, artifact, tag, url, output):
-    '''List all CVE's found by Clair service for a specific artifact tag'''
-    print('\x1b[1;33m' + '!! THIS FUNCTIONALITY IS DEPRECATED !!' + '\x1b[0m', file=sys.stderr)
+    """DEPRECATED"""
+    print('\x1b[1;33m!! THIS FUNCTIONALITY IS DEPRECATED !!\x1b[0m', file=sys.stderr)
+
+
+@cli.command()
+@click.argument('incident', callback=validate_incident_id)
+@click.argument('team', callback=validate_team)
+@click.argument('artifact')
+@click.argument('tag')
+@url_option
+@click.pass_obj
+def mark_production_ready(config, incident, team, artifact, tag, url):
+    """
+    Manually mark image as production ready.
+    """
+    pierone_url = set_pierone_url(config, url)
+    registry = get_registry(pierone_url)
+    image = DockerImage(registry, team, artifact, tag)
+    api = PierOne(pierone_url)
+    api.mark_production_ready(image, incident)
+    if team in ["ci", "automata", "torch"]:
+        click.echo("🧙 ", nl=False)
+    click.echo("Marked {} as `production_ready` due to incident {}.".format(
+        format_full_image_name(image), incident
+    ))
+
+
+@cli.command()
+@click.argument('team', callback=validate_team)
+@click.argument('artifact')
+@click.argument('tag')
+@url_option
+@click.pass_obj
+def describe(config, team, artifact, tag, url):
+    """Describe docker image."""
+    url = set_pierone_url(config, url)
+    registry = get_registry(url)
+    api = PierOne(url)
+
+    image = DockerImage(registry=registry, team=team, artifact=artifact, tag=tag)
+
+    tag_info = api.get_tag_info(image)
+
+    try:
+        scm_source = api.get_scm_source(image)
+    except ArtifactNotFound:
+        scm_source = None
+
+    underscore_to_title = (lambda s: s.replace('_', ' ').title() if s else "Not Processed")
+    effective_status = underscore_to_title(tag_info.get("status"))
+    checker_status = underscore_to_title(tag_info.get("checker_status"))
+    status_details = markdown_2_cli(tag_info.get("checker_status_reason_details") or "")
+
+    details_box = DetailsBox()
+    details_box.set("General Information", "Team", team)
+    details_box.set("General Information", "Artifact", artifact)
+    details_box.set("General Information", "Tag", tag)
+    details_box.set("General Information", "Author", tag_info["created_by"])
+    details_box.set("General Information", "Created in", tag_info["created"])
+    if scm_source:
+        details_box.set("Commit Information", "Repository", scm_source["url"])
+        details_box.set("Commit Information", "Hash", scm_source["revision"])
+        details_box.set("Commit Information", "Time", scm_source["created"])
+        details_box.set("Commit Information", "Author", scm_source["author"])
+        details_box.set("Commit Information", "Status", scm_source["status"])
+        details_box.set("Compliance Information", "Valid SCM Source", scm_source["valid"])
+    else:
+        details_box.set("Compliance Information", "Valid SCM Source", "No SCM Source")
+    details_box.set("Compliance Information", "Effective Status", effective_status)
+    details_box.set("Compliance Information", "Checker Status", checker_status)
+    details_box.set("Compliance Information", "Checker Status Date", tag_info["checker_status_received_at"])
+    details_box.set("Compliance Information", "Checker Status Reason", tag_info["checker_status_reason"])
+    # TODO make markdown function return a string
+    details_box.set("Compliance Information", "Checker Status Details", status_details if status_details else "")
+    if tag_info.get("user_status"):
+        user_status = underscore_to_title(tag_info["user_status"])
+        details_box.set("Compliance Information", "User Status", user_status)
+        details_box.set("Compliance Information", "User Status Date", tag_info["user_status_received_at"])
+        details_box.set("Compliance Information", "User Status Reason", tag_info["user_status_reason"])
+        details_box.set("Compliance Information", "User Status Issue", tag_info["user_status_issue"])
+        details_box.set("Compliance Information", "User Status Set by", tag_info["user_status_set_by"])
+    else:
+        details_box.set("Compliance Information", "User Status", "Not Set")
+    if tag_info.get("emergency_status"):
+        emergency_status = underscore_to_title(tag_info["emergency_status"])
+        details_box.set("Compliance Information", "Emergency Status", emergency_status)
+        details_box.set("Compliance Information", "Emergency Status Date", tag_info["emergency_status_received_at"])
+        details_box.set("Compliance Information", "Emergency Status Reason", tag_info["emergency_status_reason"])
+    else:
+        details_box.set("Compliance Information", "Emergency Status", "Not Set")
+    details_box.render()
 
 
 @cli.command()
@@ -245,9 +315,7 @@ def latest(config, team, artifact, url, output):
     set_pierone_url(config, url)
     token = get_token()
 
-    registry = config.get('url')
-    if registry.startswith('https://'):
-        registry = registry[8:]
+    registry = get_registry(config.get('url'))
     image = DockerImage(registry=registry, team=team, artifact=artifact, tag=None)
 
     latest_tag = get_latest_tag(image, token)
@@ -266,10 +334,11 @@ def latest(config, team, artifact, url, output):
 @click.pass_obj
 def scm_source(config, team, artifact, tag, url, output):
     '''Show SCM source information such as GIT revision'''
-    set_pierone_url(config, url)
+    url = set_pierone_url(config, url)
+    api = PierOne(url)
     token = get_token()
 
-    tags = get_tags(config.get('url'), team, artifact, token)
+    tags = get_tags(url, team, artifact, token)
     if not tags:
         raise click.UsageError('Artifact or Team does not exist! '
                                'Please double check for spelling mistakes.')
@@ -279,12 +348,12 @@ def scm_source(config, team, artifact, tag, url, output):
 
     rows = []
     for t in tag:
-        r = request(config.get('url'), '/teams/{}/artifacts/{}/tags/{}/scm-source'.format(team, artifact, t),
-                    token, True)
-        if r is None:
+        image = DockerImage(url, team, artifact, t)
+        try:
+            scm_source = api.get_scm_source(image)
+            row = scm_source
+        except ArtifactNotFound:
             row = {}
-        else:
-            row = r.json()
         row['tag'] = t
         matching_tag = [d for d in tags if d['name'] == t]
         row['created_by'] = ''.join([d['created_by'] for d in matching_tag])
