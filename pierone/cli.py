@@ -214,7 +214,7 @@ def cves(config, team, artifact, tag, url, output):
     print('\x1b[1;33m!! THIS FUNCTIONALITY IS DEPRECATED !!\x1b[0m', file=sys.stderr)
 
 
-@cli.command()
+@cli.command("mark-production-ready")
 @click.argument('incident', callback=validate_incident_id)
 @click.argument('team', callback=validate_team)
 @click.argument('artifact')
