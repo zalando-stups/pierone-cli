@@ -184,7 +184,6 @@ def tags(config, team: str, artifact, url, output, limit):
         titles = {
             "created_time": "Created",
             "created_by": "By",
-            "status_reason_summary": "Status Reason",
         }
         print_table(
             [
@@ -195,7 +194,7 @@ def tags(config, team: str, artifact, url, output, limit):
                 "created_by",
                 "trusted",
                 "status",
-                "status_reason_summary",
+                "status_reason",
             ],
             rows,
             titles=titles
@@ -258,9 +257,6 @@ def describe(config, team, artifact, tag, url):
     except ArtifactNotFound:
         scm_source = None
 
-    underscore_to_title = (lambda s: s.replace('_', ' ').title() if s else "Not Processed")
-    effective_status = underscore_to_title(tag_info.get("status"))
-    checker_status = underscore_to_title(tag_info.get("checker_status"))
     status_details = markdown_2_cli(tag_info.get("checker_status_reason_details") or "")
 
     details_box = DetailsBox()
@@ -278,14 +274,14 @@ def describe(config, team, artifact, tag, url):
         details_box.set("Compliance Information", "Valid SCM Source", scm_source["valid"])
     else:
         details_box.set("Compliance Information", "Valid SCM Source", "No SCM Source")
-    details_box.set("Compliance Information", "Effective Status", effective_status)
-    details_box.set("Compliance Information", "Checker Status", checker_status)
+    details_box.set("Compliance Information", "Effective Status", tag_info.get("status", "Not Processed"))
+    details_box.set("Compliance Information", "Checker Status", tag_info.get("checker_status", "Not Processed"))
     details_box.set("Compliance Information", "Checker Status Date", tag_info["checker_status_received_at"])
     details_box.set("Compliance Information", "Checker Status Reason", tag_info["checker_status_reason"])
     # TODO make markdown function return a string
     details_box.set("Compliance Information", "Checker Status Details", status_details if status_details else "")
     if tag_info.get("user_status"):
-        user_status = underscore_to_title(tag_info["user_status"])
+        user_status = tag_info["user_status"]
         details_box.set("Compliance Information", "User Status", user_status)
         details_box.set("Compliance Information", "User Status Date", tag_info["user_status_received_at"])
         details_box.set("Compliance Information", "User Status Reason", tag_info["user_status_reason"])
@@ -294,7 +290,7 @@ def describe(config, team, artifact, tag, url):
     else:
         details_box.set("Compliance Information", "User Status", "Not Set")
     if tag_info.get("emergency_status"):
-        emergency_status = underscore_to_title(tag_info["emergency_status"])
+        emergency_status = tag_info["emergency_status"]
         details_box.set("Compliance Information", "Emergency Status", emergency_status)
         details_box.set("Compliance Information", "Emergency Status Date", tag_info["emergency_status_received_at"])
         details_box.set("Compliance Information", "Emergency Status Reason", tag_info["emergency_status_reason"])
