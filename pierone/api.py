@@ -257,7 +257,7 @@ def parse_pierone_artifact_dict(original_payload_from_api, team, artifact) -> di
     # The dict is pre-populated with defaults
     parsed_dict = {
         "status": "Not Processed",
-        "status_reason_summary": "Not Processed",
+        "status_reason": "Not Processed",
         "trusted": None
     }
     parsed_dict.update(original_payload_from_api)

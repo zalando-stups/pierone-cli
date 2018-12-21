@@ -184,7 +184,6 @@ def tags(config, team: str, artifact, url, output, limit):
         titles = {
             "created_time": "Created",
             "created_by": "By",
-            "status_reason_summary": "Status Reason",
         }
         print_table(
             [
@@ -195,7 +194,7 @@ def tags(config, team: str, artifact, url, output, limit):
                 "created_by",
                 "trusted",
                 "status",
-                "status_reason_summary",
+                "status_reason",
             ],
             rows,
             titles=titles
