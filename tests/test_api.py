@@ -40,28 +40,7 @@ def test_docker_login(monkeypatch, tmpdir):
         data = yaml.safe_load(fd)
         assert {'auth': 'b2F1dGgyOjEyMzc3',
                 'email': 'no-mail-required@example.org'} == data.get('auths').get('https://pierone.example.org')
-
-def test_docker_login_with_credsstore(monkeypatch, tmpdir):
-    monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
-    path = os.path.expanduser('~/.docker/config.json')
-    os.makedirs(os.path.dirname(path))
-    with open(path, 'w') as fd:
-        json.dump({
-            "auths": {
-                "https://pierone.stups.zalan.do": {
-                    "auth": "xxx",
-                    "email": "no-mail-required@example.org"
-                }
-            },
-            "credsStore": "osxkeychain"
-        }, fd)
-    docker_login('https://pierone.example.org', 'services', 'mytok',
-                 'myuser', 'mypass', 'https://token.example.org', use_keyring=False)
-    with open(path) as fd:
-        data = yaml.safe_load(fd)
-        assert {'auth': 'b2F1dGgyOjEyMzc3',
-                'email': 'no-mail-required@example.org'} == data.get('auths').get('https://pierone.example.org')
-        assert 'credsStore' not in data
+        assert "" == data.get('credHelpers', {}).get('pierone.example.org')
 
 
 def test_docker_login_service_token(monkeypatch, tmpdir):
