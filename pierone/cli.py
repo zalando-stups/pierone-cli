@@ -192,7 +192,6 @@ def tags(config, team: str, artifact, url, output, limit):
                 "tag",
                 "created_time",
                 "created_by",
-                "trusted",
                 "status",
                 "status_reason",
             ],
@@ -363,57 +362,6 @@ def scm_source(config, team, artifact, tag, url, output):
                     titles={'tag': 'Tag', 'created_by': 'By', 'created_time': 'Created',
                             'url': 'URL', 'revision': 'Revision', 'status': 'Status'},
                     max_column_widths={'revision': 10})
-
-
-@cli.command('mark-trusted')
-@click.argument('team', callback=validate_team)
-@click.argument('artifact')
-@click.argument('tag')
-@url_option
-@output_option
-@click.pass_obj
-def mark_trusted(config, team, artifact, tag, url, output):
-    '''Mark untrusted image as trusted in Docker Registry'''
-    set_pierone_url(config, url)
-    token = get_token()
-
-    tags = get_tags(config.get('url'), team, artifact, token)
-
-    if not tags:
-        raise click.UsageError('Artifact or Team does not exist! '
-                               'Please double check for spelling mistakes.')
-
-    if tag not in [t['name'] for t in tags]:
-        raise click.UsageError('Provided Tag does not exist!'
-                               'Please double check for spelling mistakes.')
-
-    r = request(config.get('url'), '/teams/{}/artifacts/{}/tags/{}/scm-source'.format(team, artifact, tag),
-                token, True)
-    if r is None:
-        raise click.ClickException('No SCM source available for tag, cannot mark as trusted.')
-    else:
-        row = r.json()
-        tag_info = [d for d in tags if d['name'] == tag][0]
-        row['tag'] = tag
-        row['created_by'] = tag_info['created_by']
-        row['created_time'] = parse_time(tag_info['created'])
-
-        with OutputFormat(output):
-            print_table(['tag', 'author', 'url', 'revision', 'status', 'created_time', 'created_by', 'valid'], [row],
-                        titles={'tag': 'Tag', 'created_by': 'By', 'created_time': 'Created',
-                                'url': 'URL', 'revision': 'Revision', 'status': 'Status', 'valid': 'Valid'},)
-
-        valid = row.get('valid')
-
-        if not valid:
-            raise click.ClickException('SCM source information is not valid, cannot mark as trusted.')
-        else:
-            if click.confirm('Do you want to mark this image as trusted?'):
-                request(config.get('url'), '/teams/{}/artifacts/{}/tags/{}/approval'.format(team, artifact, tag),
-                        access_token=token, method='POST', data=None)
-                click.secho('Marked image as trusted.', fg='green')
-            else:
-                click.secho('Canceled.', fg='red')
 
 
 @cli.command('image')

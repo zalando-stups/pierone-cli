@@ -262,7 +262,6 @@ def parse_pierone_artifact_dict(original_payload_from_api, team, artifact) -> di
     parsed_dict = {
         "status": "Not Processed",
         "status_reason": "Not Processed",
-        "trusted": None
     }
     parsed_dict.update(original_payload_from_api)
     parsed_dict['team'] = team
