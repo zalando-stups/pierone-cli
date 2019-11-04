@@ -8,7 +8,7 @@ import click
 
 INCIDENT_PATTERN = re.compile(r'^INC-\d+$')
 
-TEAM_PATTERN_STR = r'[a-z][a-z0-9-]+'
+TEAM_PATTERN_STR = r'[a-z][a-z0-9_-]+'
 TEAM_PATTERN = re.compile(r'^{}$'.format(TEAM_PATTERN_STR))
 
 
