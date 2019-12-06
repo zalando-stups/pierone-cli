@@ -73,7 +73,7 @@ def test_login(monkeypatch, tmpdir):
 
     monkeypatch.setattr('stups_cli.config.load_config', lambda x: {})
     monkeypatch.setattr('pierone.api.get_token', MagicMock(return_value='tok123'))
-    monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
+    monkeypatch.setattr('pierone.utils.get_docker_config_path', lambda path: os.path.join(str(tmpdir), path))
 
     with runner.isolated_filesystem():
         result = runner.invoke(cli, ['login'], catch_exceptions=False, input='pieroneurl\n')
@@ -90,7 +90,7 @@ def test_invalid_url_for_login(monkeypatch, tmpdir):
 
     monkeypatch.setattr('stups_cli.config.load_config', lambda x: {})
     monkeypatch.setattr('pierone.api.get_token', MagicMock(return_value='tok123'))
-    monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
+    monkeypatch.setattr('pierone.utils.get_docker_config_path', lambda path: os.path.join(str(tmpdir), path))
 
     # Missing Pier One header
     response.text = 'Not valid API'
@@ -183,7 +183,7 @@ def test_login_given_url_option(monkeypatch, tmpdir):
     monkeypatch.setattr('stups_cli.config.load_config', lambda x: {})
     monkeypatch.setattr('stups_cli.config.store_config', store)
     monkeypatch.setattr('pierone.api.get_token', MagicMock(return_value='tok123'))
-    monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
+    monkeypatch.setattr('pierone.utils.get_docker_config_path', lambda path: os.path.join(str(tmpdir), path))
 
     with runner.isolated_filesystem():
         runner.invoke(cli, ['login'], catch_exceptions=False, input='pieroneurl\n')
@@ -197,12 +197,13 @@ def test_login_given_url_option(monkeypatch, tmpdir):
 
 
 def test_scm_source(monkeypatch, tmpdir, mock_pierone_api):
-
     runner = CliRunner()
+
     monkeypatch.setattr('stups_cli.config.load_config', lambda x: {'url': 'foobar'})
     monkeypatch.setattr('zign.api.get_token', MagicMock(return_value='tok123'))
     monkeypatch.setattr('pierone.cli.get_tags', MagicMock(return_value=[{'name': 'myart'}]))
-    monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
+    monkeypatch.setattr('pierone.utils.get_docker_config_path', lambda path: os.path.join(str(tmpdir), path))
+
     with runner.isolated_filesystem():
         result = runner.invoke(cli, ['scm-source', 'myteam', 'myart', '1.0'], catch_exceptions=False)
         assert 'myrev123' in result.output
@@ -218,9 +219,10 @@ def test_scm_source(monkeypatch, tmpdir, mock_pierone_api):
 
 def test_image(monkeypatch, tmpdir):
     runner = CliRunner()
+
     monkeypatch.setattr('stups_cli.config.load_config', lambda x: {'url': 'foobar'})
     monkeypatch.setattr('zign.api.get_token', MagicMock(return_value='tok123'))
-    monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
+    monkeypatch.setattr('pierone.utils.get_docker_config_path', lambda path: os.path.join(str(tmpdir), path))
 
     response = MagicMock()
     response.json.return_value = [{'name': '1.0', 'team': 'stups', 'artifact': 'kio'}]
@@ -335,19 +337,23 @@ def test_tags(monkeypatch, tmpdir, mock_pierone_api):
     ]
 
     runner = CliRunner()
+
     monkeypatch.setattr('stups_cli.config.load_config', lambda x: {'url': 'foobar'})
     monkeypatch.setattr('zign.api.get_token', MagicMock(return_value='tok123'))
-    monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
+    monkeypatch.setattr('pierone.utils.get_docker_config_path', lambda path: os.path.join(str(tmpdir), path))
     monkeypatch.setattr('pierone.api.session.request', MagicMock(return_value=response))
+
     with runner.isolated_filesystem():
         result = runner.invoke(cli, ['tags', 'myteam', 'myart'], catch_exceptions=False)
         assert '1.0' in result.output
 
 def test_tags_versions_limit(monkeypatch, tmpdir, mock_pierone_api):
     runner = CliRunner()
+
     monkeypatch.setattr('stups_cli.config.load_config', lambda x: {'url': 'foobar'})
     monkeypatch.setattr('zign.api.get_token', MagicMock(return_value='tok123'))
-    monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
+    monkeypatch.setattr('pierone.utils.get_docker_config_path', lambda path: os.path.join(str(tmpdir), path))
+
     with runner.isolated_filesystem():
         result = runner.invoke(cli, ['tags', 'myteam', '--limit=1'], catch_exceptions=False)
         assert '1.0' not in result.output

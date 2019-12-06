@@ -12,7 +12,7 @@ from zign.api import get_token
 
 from .exceptions import ArtifactNotFound, Forbidden, Conflict, UnprocessableEntity
 from .types import DockerImage
-from .utils import get_user_friendly_user_name
+from .utils import get_user_friendly_user_name, get_docker_config_path
 
 adapter = requests.adapters.HTTPAdapter(pool_connections=10, pool_maxsize=10)
 session = requests.Session()
@@ -21,7 +21,6 @@ session.mount('https://', adapter)
 
 
 class PierOne:
-
     def __init__(self, url: str):
         self.url = url if url.startswith("https://") else "https://" + url
         self._access_token = get_token('pierone', ['uid'])
@@ -159,7 +158,7 @@ def docker_login(url, realm, name, user, password, token_url=None, use_keyring=T
 def docker_login_with_token(url, access_token):
     '''Configure docker with existing OAuth2 access token'''
 
-    path = os.path.expanduser('~/.docker/config.json')
+    path = get_docker_config_path('config.json')
     try:
         with open(path) as fd:
             dockercfg = json.load(fd)
@@ -192,7 +191,7 @@ def iid_auth():
 def docker_login_with_iid(url):
     '''Configure docker with IID auth'''
 
-    path = os.path.expanduser('~/.docker/config.json')
+    path = get_docker_config_path('config.json')
     try:
         with open(path) as fd:
             dockercfg = json.load(fd)
