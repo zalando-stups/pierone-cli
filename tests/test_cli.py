@@ -1,10 +1,10 @@
 import json
 import os
-import re
-from unittest.mock import MagicMock
 
 import pytest
 from click.testing import CliRunner
+from unittest.mock import MagicMock
+
 from pierone.cli import cli
 from requests import RequestException, HTTPError
 
@@ -14,6 +14,12 @@ def valid_pierone_url(monkeypatch):
     response = MagicMock()
     response.text = 'Pier One API'
     monkeypatch.setattr('requests.get', lambda *args, **kw: response)
+
+
+@pytest.fixture(autouse=True)
+def mock_docker_config_path(monkeypatch, tmpdir):
+    monkeypatch.setattr('pierone.api.get_docker_config_path',
+                        lambda path: os.path.join(str(tmpdir), path))
 
 
 @pytest.fixture()
@@ -58,7 +64,9 @@ def mock_pierone_api(monkeypatch):
 
     monkeypatch.setattr('pierone.api.PierOne', api)
     monkeypatch.setattr('pierone.cli.PierOne', api)
+
     return api
+
 
 def test_version(monkeypatch):
     runner = CliRunner()
@@ -73,13 +81,12 @@ def test_login(monkeypatch, tmpdir):
 
     monkeypatch.setattr('stups_cli.config.load_config', lambda x: {})
     monkeypatch.setattr('pierone.api.get_token', MagicMock(return_value='tok123'))
-    monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
 
     with runner.isolated_filesystem():
         result = runner.invoke(cli, ['login'], catch_exceptions=False, input='pieroneurl\n')
         assert 'Storing Docker client configuration' in result.output
         assert result.output.rstrip().endswith('OK')
-        with open(os.path.join(str(tmpdir), '.docker/config.json')) as fd:
+        with open(os.path.join(str(tmpdir), 'config.json')) as fd:
             data = json.load(fd)
         assert data['auths']['https://pieroneurl']['auth'] == 'b2F1dGgyOnRvazEyMw=='
 
@@ -90,7 +97,6 @@ def test_invalid_url_for_login(monkeypatch, tmpdir):
 
     monkeypatch.setattr('stups_cli.config.load_config', lambda x: {})
     monkeypatch.setattr('pierone.api.get_token', MagicMock(return_value='tok123'))
-    monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
 
     # Missing Pier One header
     response.text = 'Not valid API'
@@ -100,7 +106,7 @@ def test_invalid_url_for_login(monkeypatch, tmpdir):
         result = runner.invoke(cli, ['login'], catch_exceptions=False, input='pieroneurl\n')
         assert 'ERROR: Did not find a valid Pier One registry at https://pieroneurl' in result.output
         assert result.exit_code == 1
-        assert not os.path.exists(os.path.join(str(tmpdir), '.docker/config.json'))
+        assert not os.path.exists(os.path.join(str(tmpdir), 'config.json'))
 
     # Not a valid header
     response.raise_for_status = MagicMock(side_effect=RequestException)
@@ -109,7 +115,7 @@ def test_invalid_url_for_login(monkeypatch, tmpdir):
         result = runner.invoke(cli, ['login'], catch_exceptions=False, input='pieroneurl\n')
         assert 'ERROR: Could not reach https://pieroneurl' in result.output
         assert result.exit_code == 1
-        assert not os.path.exists(os.path.join(str(tmpdir), '.docker/config.json'))
+        assert not os.path.exists(os.path.join(str(tmpdir), 'config.json'))
 
 
 def test_login_arg_user(monkeypatch, tmpdir):
@@ -183,13 +189,12 @@ def test_login_given_url_option(monkeypatch, tmpdir):
     monkeypatch.setattr('stups_cli.config.load_config', lambda x: {})
     monkeypatch.setattr('stups_cli.config.store_config', store)
     monkeypatch.setattr('pierone.api.get_token', MagicMock(return_value='tok123'))
-    monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
 
     with runner.isolated_filesystem():
         runner.invoke(cli, ['login'], catch_exceptions=False, input='pieroneurl\n')
         assert config == {'url': 'https://pieroneurl'}
         runner.invoke(cli, ['login', '--url', 'someotherregistry'], catch_exceptions=False)
-        with open(os.path.join(str(tmpdir), '.docker/config.json')) as fd:
+        with open(os.path.join(str(tmpdir), 'config.json')) as fd:
             data = json.load(fd)
         assert data['auths']['https://pieroneurl']['auth'] == 'b2F1dGgyOnRvazEyMw=='
         assert data['auths']['https://someotherregistry']['auth'] == 'b2F1dGgyOnRvazEyMw=='
@@ -197,12 +202,12 @@ def test_login_given_url_option(monkeypatch, tmpdir):
 
 
 def test_scm_source(monkeypatch, tmpdir, mock_pierone_api):
-
     runner = CliRunner()
+
     monkeypatch.setattr('stups_cli.config.load_config', lambda x: {'url': 'foobar'})
     monkeypatch.setattr('zign.api.get_token', MagicMock(return_value='tok123'))
     monkeypatch.setattr('pierone.cli.get_tags', MagicMock(return_value=[{'name': 'myart'}]))
-    monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
+
     with runner.isolated_filesystem():
         result = runner.invoke(cli, ['scm-source', 'myteam', 'myart', '1.0'], catch_exceptions=False)
         assert 'myrev123' in result.output
@@ -218,9 +223,9 @@ def test_scm_source(monkeypatch, tmpdir, mock_pierone_api):
 
 def test_image(monkeypatch, tmpdir):
     runner = CliRunner()
+
     monkeypatch.setattr('stups_cli.config.load_config', lambda x: {'url': 'foobar'})
     monkeypatch.setattr('zign.api.get_token', MagicMock(return_value='tok123'))
-    monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
 
     response = MagicMock()
     response.json.return_value = [{'name': '1.0', 'team': 'stups', 'artifact': 'kio'}]
@@ -243,6 +248,7 @@ def test_image(monkeypatch, tmpdir):
     response404 = MagicMock()
     response404.status_code = 404
     monkeypatch.setattr('pierone.api.session.request', MagicMock(side_effect=HTTPError(response=response404)))
+
     with runner.isolated_filesystem():
         result = runner.invoke(cli, ['image', 'abcd'], catch_exceptions=False)
         # assert result.exit_code != 0
@@ -251,6 +257,7 @@ def test_image(monkeypatch, tmpdir):
     response412 = MagicMock()
     response412.status_code = 412
     monkeypatch.setattr('pierone.api.session.request', MagicMock(side_effect=HTTPError(response=response412)))
+
     with runner.isolated_filesystem():
         result = runner.invoke(cli, ['image', 'abcd'], catch_exceptions=False)
         # assert result.exit_code != 0
@@ -335,19 +342,21 @@ def test_tags(monkeypatch, tmpdir, mock_pierone_api):
     ]
 
     runner = CliRunner()
+
     monkeypatch.setattr('stups_cli.config.load_config', lambda x: {'url': 'foobar'})
     monkeypatch.setattr('zign.api.get_token', MagicMock(return_value='tok123'))
-    monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
     monkeypatch.setattr('pierone.api.session.request', MagicMock(return_value=response))
+
     with runner.isolated_filesystem():
         result = runner.invoke(cli, ['tags', 'myteam', 'myart'], catch_exceptions=False)
         assert '1.0' in result.output
 
 def test_tags_versions_limit(monkeypatch, tmpdir, mock_pierone_api):
     runner = CliRunner()
+
     monkeypatch.setattr('stups_cli.config.load_config', lambda x: {'url': 'foobar'})
     monkeypatch.setattr('zign.api.get_token', MagicMock(return_value='tok123'))
-    monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
+
     with runner.isolated_filesystem():
         result = runner.invoke(cli, ['tags', 'myteam', '--limit=1'], catch_exceptions=False)
         assert '1.0' not in result.output
@@ -362,9 +371,11 @@ def test_latest(monkeypatch, tmpdir):
             {'name': '1.1', 'created_by': 'myuser', 'created': '2015-08-20T08:11:59.432Z'}]
 
     runner = CliRunner()
+
     monkeypatch.setattr('stups_cli.config.load_config', lambda x: {'url': 'https://pierone.example.org'})
     monkeypatch.setattr('zign.api.get_token', MagicMock(return_value='tok123'))
     monkeypatch.setattr('pierone.api.session.request', MagicMock(return_value=response))
+
     with runner.isolated_filesystem():
         result = runner.invoke(cli, ['latest', 'myteam', 'myart'], catch_exceptions=False)
         assert '1.0' == result.output.rstrip()
@@ -374,10 +385,13 @@ def test_latest_not_found(monkeypatch, tmpdir):
     response = MagicMock()
     response.raise_for_status.side_effect = Exception('FAIL')
     response.status_code = 404
+
     runner = CliRunner()
+
     monkeypatch.setattr('stups_cli.config.load_config', lambda x: {'url': 'https://pierone.example.org'})
     monkeypatch.setattr('zign.api.get_token', MagicMock(return_value='tok123'))
     monkeypatch.setattr('pierone.api.session.request', MagicMock(return_value=response))
+
     with runner.isolated_filesystem():
         result = runner.invoke(cli, ['latest', 'myteam', 'myart'], catch_exceptions=False)
         assert 'Error: Latest tag not found' == result.output.rstrip()
@@ -385,8 +399,8 @@ def test_latest_not_found(monkeypatch, tmpdir):
 
 
 def test_url_without_scheme(monkeypatch, tmpdir, mock_pierone_api):
-
     runner = CliRunner()
+
     with runner.isolated_filesystem():
         result = runner.invoke(cli, ['artifacts', 'myteam', '--url', 'example.org'], catch_exceptions=False)
         assert 'myteam app2' in result.output
