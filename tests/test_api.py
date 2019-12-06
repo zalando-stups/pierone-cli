@@ -1,9 +1,11 @@
 import json
 import os
+import yaml
+
 from unittest.mock import MagicMock, ANY
 
-import yaml
 import pytest
+
 from pierone.api import docker_login, docker_login_with_iid, PierOne, get_latest_tag, image_exists
 from pierone.exceptions import ArtifactNotFound, Forbidden, UnprocessableEntity, Conflict
 from pierone.types import DockerImage
@@ -12,10 +14,16 @@ import requests.exceptions
 
 
 @pytest.fixture(autouse=True)
-def valid_pierone_url(monkeypatch):
+def valid_pierone_url(monkeypatch, tmpdir):
     response = MagicMock()
     response.text = 'Pier One API'
     monkeypatch.setattr('requests.get', lambda *args, **kw: response)
+
+
+@pytest.fixture(autouse=True)
+def mock_docker_config_path(monkeypatch, tmpdir):
+    monkeypatch.setattr('pierone.api.get_docker_config_path',
+                        lambda path: os.path.join(str(tmpdir), path))
 
 
 @pytest.fixture(autouse=True)
@@ -31,11 +39,12 @@ def make_error_response(status_code: int):
 
 
 def test_docker_login(monkeypatch, tmpdir):
-    monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
     monkeypatch.setattr('pierone.api.get_token', MagicMock(return_value='12377'))
+
     docker_login('https://pierone.example.org', 'services', 'mytok',
                  'myuser', 'mypass', 'https://token.example.org', use_keyring=False)
-    path = os.path.expanduser('~/.docker/config.json')
+
+    path = os.path.join(str(tmpdir), 'config.json')
     with open(path) as fd:
         data = yaml.safe_load(fd)
         assert {'auth': 'b2F1dGgyOjEyMzc3',
@@ -44,10 +53,11 @@ def test_docker_login(monkeypatch, tmpdir):
 
 
 def test_docker_login_service_token(monkeypatch, tmpdir):
-    monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
     monkeypatch.setattr('tokens.get', lambda x: '12377')
+
     docker_login('https://pierone.example.org', None, 'mytok', 'myuser', 'mypass', 'https://token.example.org')
-    path = os.path.expanduser('~/.docker/config.json')
+
+    path = os.path.join(str(tmpdir), 'config.json')
     with open(path) as fd:
         data = yaml.safe_load(fd)
         assert {'auth': 'b2F1dGgyOjEyMzc3',
@@ -55,8 +65,6 @@ def test_docker_login_service_token(monkeypatch, tmpdir):
 
 
 def test_docker_login_with_iid(monkeypatch, tmpdir):
-    monkeypatch.setattr('os.path.expanduser',
-                        lambda x: x.replace('~', str(tmpdir)))
     metaservice = MagicMock()
     metaservice.text = '''TG9yZW0gaXBzdW0gZG9sb3Igc2l0IGFtZXQsIGNvbnNldGV0dXIgc2FkaXBzY2luZyBlbGl0ciwg
 c2VkIGRpYW0gbm9udW15IGVpcm1vZCB0ZW1wb3IgaW52aWR1bnQgdXQgbGFib3JlIGV0IGRvbG9y
@@ -71,8 +79,10 @@ IGNsaXRhIGthc2QgZ3ViZXJncmVuLCBubyBzZWEgdGFraW1hdGEgc2FuY3R1cyBlc3QgTG9yZW0g
 aXBzdW0gZG9sb3Igc2l0IGFtZXQuCg=='''
     monkeypatch.setattr('pierone.api.request',
                         MagicMock(return_value=metaservice))
+
     docker_login_with_iid('https://pierone.example.org')
-    path = os.path.expanduser('~/.docker/config.json')
+
+    path = os.path.join(str(tmpdir), 'config.json')
     with open(path) as fd:
         data = yaml.safe_load(fd)
         assert {'auth': 'aW5zdGFuY2UtaWRlbnRpdHktZG9jdW1lbnQ6VEc5eVpXMGdhWEJ6ZFcwZ1pHOXNiM0lnYzJsMElH'
@@ -94,9 +104,9 @@ aXBzdW0gZG9sb3Igc2l0IGFtZXQuCg=='''
 
 
 def test_keep_dockercfg_entries(monkeypatch, tmpdir):
-    monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
     monkeypatch.setattr('pierone.api.get_token', MagicMock(return_value='12377'))
-    path = os.path.expanduser('~/.docker/config.json')
+
+    path = os.path.join(str(tmpdir), 'config.json')
 
     key = 'https://old.example.org'
     existing_data = {
@@ -105,14 +115,15 @@ def test_keep_dockercfg_entries(monkeypatch, tmpdir):
             'email': 'jdoe@example.org'
         }
     }
-    os.makedirs(os.path.dirname(path))
+
     with open(path, 'w') as fd:
         json.dump(existing_data, fd)
 
     docker_login('https://pierone.example.org', 'services', 'mytok',
                  'myuser', 'mypass', 'https://token.example.org', use_keyring=False)
+
     with open(path) as fd:
-        data = yaml.safe_load(fd)
+        data = json.load(fd)
         assert {'auth': 'b2F1dGgyOjEyMzc3',
                 'email': 'no-mail-required@example.org'} == data.get('auths', {}).get('https://pierone.example.org')
         assert existing_data.get(key) == data.get(key)

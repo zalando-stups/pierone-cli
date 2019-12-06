@@ -12,7 +12,7 @@ from zign.api import get_token
 
 from .exceptions import ArtifactNotFound, Forbidden, Conflict, UnprocessableEntity
 from .types import DockerImage
-from .utils import get_user_friendly_user_name
+from .utils import get_user_friendly_user_name, get_docker_config_path
 
 adapter = requests.adapters.HTTPAdapter(pool_connections=10, pool_maxsize=10)
 session = requests.Session()
@@ -21,7 +21,6 @@ session.mount('https://', adapter)
 
 
 class PierOne:
-
     def __init__(self, url: str):
         self.url = url if url.startswith("https://") else "https://" + url
         self._access_token = get_token('pierone', ['uid'])
@@ -149,6 +148,21 @@ class PierOne:
         )
 
 
+def safe_load_json(path, default={}):
+    try:
+        with open(path, 'r') as fd:
+            return json.load(fd)
+    except Exception:
+        return default
+
+
+def safe_dump_json(path, data):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+
+    with open(path, 'w') as fd:
+        json.dump(data, fd, indent=2)
+
+
 # all the other paramaters are deprecated, but still here for compatibility
 def docker_login(url, realm, name, user, password, token_url=None, use_keyring=True, prompt=False):
     with Action('Getting OAuth2 token "{}"..'.format(name)):
@@ -159,12 +173,9 @@ def docker_login(url, realm, name, user, password, token_url=None, use_keyring=T
 def docker_login_with_token(url, access_token):
     '''Configure docker with existing OAuth2 access token'''
 
-    path = os.path.expanduser('~/.docker/config.json')
-    try:
-        with open(path) as fd:
-            dockercfg = json.load(fd)
-    except Exception:
-        dockercfg = {}
+    path = get_docker_config_path('config.json')
+    dockercfg = safe_load_json(path, {})
+
     basic_auth = codecs.encode('oauth2:{}'.format(access_token).encode('utf-8'), 'base64').strip().decode('utf-8')
 
     dockercfg['auths'] = dockercfg.get('auths', {})
@@ -177,9 +188,7 @@ def docker_login_with_token(url, access_token):
     dockercfg['credHelpers'][hostname] = ""
 
     with Action('Storing Docker client configuration in {}..'.format(path)):
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, 'w') as fd:
-            json.dump(dockercfg, fd, indent=2)
+        safe_dump_json(path, dockercfg)
 
 
 def iid_auth():
@@ -192,20 +201,17 @@ def iid_auth():
 def docker_login_with_iid(url):
     '''Configure docker with IID auth'''
 
-    path = os.path.expanduser('~/.docker/config.json')
-    try:
-        with open(path) as fd:
-            dockercfg = json.load(fd)
-    except Exception:
-        dockercfg = {}
+    path = get_docker_config_path('config.json')
+    dockercfg = safe_load_json(path, {})
+
     if 'auths' not in dockercfg:
         dockercfg['auths'] = {}
+
     dockercfg['auths'][url] = {'auth': iid_auth(),
                                'email': 'no-mail-required@example.org'}
+
     with Action('Storing Docker client configuration in {}..'.format(path)):
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, 'w') as fd:
-            json.dump(dockercfg, fd)
+        safe_dump_json(path, dockercfg)
 
 
 def request(url, path, access_token: str = None,
