@@ -40,7 +40,6 @@ def test_docker_login(monkeypatch, tmpdir):
         data = yaml.safe_load(fd)
         assert {'auth': 'b2F1dGgyOjEyMzc3',
                 'email': 'no-mail-required@example.org'} == data.get('auths').get('https://pierone.example.org')
-        assert "" == data.get('credHelpers', {}).get('pierone.example.org')
 
 
 def test_docker_login_service_token(monkeypatch, tmpdir):
