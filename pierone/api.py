@@ -5,6 +5,7 @@ import json
 import os
 import time
 from urllib.parse import urlparse
+import warnings
 
 import requests
 from clickclick import Action
@@ -184,6 +185,7 @@ def docker_login_with_credhelper(url):
 
 # all the other paramaters are deprecated, but still here for compatibility
 def docker_login(url, realm, name, user, password, token_url=None, use_keyring=True, prompt=False):
+    warnings.warn("deprecated", DeprecationWarning)
     with Action('Getting OAuth2 token "{}"..'.format(name)):
         access_token = get_token(name, ['uid', 'application.write'])
     docker_login_with_token(url, access_token)
@@ -191,6 +193,7 @@ def docker_login(url, realm, name, user, password, token_url=None, use_keyring=T
 
 def docker_login_with_token(url, access_token):
     '''Configure docker with existing OAuth2 access token'''
+    warnings.warn("deprecated", DeprecationWarning)
     dockercfg = load_docker_config()
     basic_auth = codecs.encode('oauth2:{}'.format(access_token).encode('utf-8'), 'base64').strip().decode('utf-8')
 
