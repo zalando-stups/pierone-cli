@@ -8,10 +8,10 @@ import requests
 import stups_cli.config
 import zign.api
 import sys
-from clickclick import AliasedGroup, OutputFormat, UrlType, error, fatal_error, print_table
+from clickclick import AliasedGroup, OutputFormat, UrlType, error, fatal_error, print_table, ok
 from requests import RequestException
 
-from .api import PierOne, docker_login, get_latest_tag, parse_time, request
+from .api import PierOne, docker_login_with_credhelper, get_latest_tag, parse_time, request
 from .exceptions import PieroneException, ArtifactNotFound
 from .ui import DetailsBox, format_full_image_name, markdown_2_cli
 from .utils import get_registry
@@ -46,7 +46,7 @@ def validate_pierone_url(url: str) -> None:
         fatal_error('ERROR: Could not reach {}'.format(ping_url))
 
 
-def set_pierone_url(config: dict, url: str) -> None:
+def set_pierone_url(config: dict, url: str) -> str:
     '''Read Pier One URL from cli, from config file or from stdin.'''
     url = url or config.get('url')
 
@@ -78,21 +78,17 @@ def cli(ctx):
 
 @cli.command()
 @url_option
-@click.option('--realm', help='Use custom OAuth2 realm', metavar='NAME')
-@click.option('-n', '--name', help='Custom token name (will be stored)', metavar='TOKEN_NAME', default='pierone')
-@click.option('-U', '--user', help='Username to use for authentication', envvar='PIERONE_USER', metavar='NAME')
-@click.option('-p', '--password', help='Password to use for authentication', envvar='PIERONE_PASSWORD', metavar='PWD')
 @click.pass_obj
-def login(config, url, realm, name, user, password):
+def login(config, url):
     '''Login to Pier One Docker registry (generates docker configuration in ~/.docker/config.json)'''
     url_option_was_set = url
     url = set_pierone_url(config, url)
-    user = user or zign.api.get_config().get('user') or os.getenv('USER')
 
     if not url_option_was_set:
         stups_cli.config.store_config(config, 'pierone')
 
-    docker_login(url, realm, name, user, password, prompt=True)
+    docker_login_with_credhelper(url)
+    ok("Authentication configured for {}, you don't need to run pierone login anymore!".format(url))
 
 
 def get_token():
