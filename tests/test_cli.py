@@ -72,16 +72,40 @@ def test_login(monkeypatch, tmpdir):
     runner = CliRunner()
 
     monkeypatch.setattr('stups_cli.config.load_config', lambda x: {})
-    monkeypatch.setattr('pierone.api.get_token', MagicMock(return_value='tok123'))
     monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
 
     with runner.isolated_filesystem():
         result = runner.invoke(cli, ['login'], catch_exceptions=False, input='pieroneurl\n')
         assert 'Storing Docker client configuration' in result.output
-        assert result.output.rstrip().endswith('OK')
         with open(os.path.join(str(tmpdir), '.docker/config.json')) as fd:
             data = json.load(fd)
-        assert data['auths']['https://pieroneurl']['auth'] == 'b2F1dGgyOnRvazEyMw=='
+        assert data['auths'] == {}
+        assert data['credHelpers'] == {'pieroneurl': 'pierone'}
+
+
+def test_login_update_config(monkeypatch, tmpdir):
+    runner = CliRunner()
+
+    monkeypatch.setattr('stups_cli.config.load_config', lambda x: {})
+    monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
+
+    with runner.isolated_filesystem():
+        os.makedirs(os.path.join(str(tmpdir), ".docker"))
+        with open(os.path.join(str(tmpdir), '.docker/config.json'), 'w') as fd:
+            fd.write(json.dumps({
+                'auths': {
+                    'https://pieroneurl': {
+                        "auth": "abcd"
+                    }
+                }
+            }))
+
+        result = runner.invoke(cli, ['login'], catch_exceptions=False, input='pieroneurl\n')
+        assert 'Storing Docker client configuration' in result.output
+        with open(os.path.join(str(tmpdir), '.docker/config.json')) as fd:
+            data = json.load(fd)
+        assert data['auths'] == {}
+        assert data['credHelpers'] == {'pieroneurl': 'pierone'}
 
 
 def test_invalid_url_for_login(monkeypatch, tmpdir):
@@ -112,66 +136,6 @@ def test_invalid_url_for_login(monkeypatch, tmpdir):
         assert not os.path.exists(os.path.join(str(tmpdir), '.docker/config.json'))
 
 
-def test_login_arg_user(monkeypatch, tmpdir):
-    arg_user = 'arg_user'
-    zign_user = 'zign_user'
-    env_user = 'env_user'
-
-    response = MagicMock()
-
-    runner = CliRunner()
-
-    def mock_docker_login(url, realm, name, user, password, token_url=None, use_keyring=True, prompt=False):
-        assert arg_user == user
-
-    monkeypatch.setattr('zign.api.get_config', lambda: {'user': zign_user})
-    monkeypatch.setattr('os.getenv', lambda x: env_user)
-    monkeypatch.setattr('pierone.cli.docker_login', mock_docker_login)
-    monkeypatch.setattr('requests.get', lambda x, timeout: response)
-
-    with runner.isolated_filesystem():
-        runner.invoke(cli, ['login', '-U', arg_user], catch_exceptions=False, input='pieroneurl\n')
-
-
-def test_login_zign_user(monkeypatch, tmpdir):
-    zign_user = 'zign_user'
-    env_user = 'env_user'
-
-    response = MagicMock()
-
-    runner = CliRunner()
-
-    def mock_docker_login(url, realm, name, user, password, token_url=None, use_keyring=True, prompt=False):
-        assert zign_user == user
-
-    monkeypatch.setattr('zign.api.get_config', lambda: {'user': zign_user})
-    monkeypatch.setattr('os.getenv', lambda: env_user)
-    monkeypatch.setattr('pierone.cli.docker_login', mock_docker_login)
-    monkeypatch.setattr('requests.get', lambda x, timeout: response)
-
-    with runner.isolated_filesystem():
-        runner.invoke(cli, ['login'], catch_exceptions=False, input='pieroneurl\n')
-
-
-def test_login_env_user(monkeypatch, tmpdir):
-    env_user = 'env_user'
-
-    response = MagicMock()
-
-    runner = CliRunner()
-
-    def mock_docker_login(url, realm, name, user, password, token_url=None, use_keyring=True, prompt=False):
-        assert env_user == user
-
-    monkeypatch.setattr('zign.api.get_config', lambda: {'user': ''})
-    monkeypatch.setattr('os.getenv', lambda x: env_user)
-    monkeypatch.setattr('pierone.cli.docker_login', mock_docker_login)
-    monkeypatch.setattr('requests.get', lambda x, timeout: response)
-
-    with runner.isolated_filesystem():
-        runner.invoke(cli, ['login'], catch_exceptions=False, input='pieroneurl\n')
-
-
 def test_login_given_url_option(monkeypatch, tmpdir):
     runner = CliRunner()
 
@@ -191,9 +155,11 @@ def test_login_given_url_option(monkeypatch, tmpdir):
         runner.invoke(cli, ['login', '--url', 'someotherregistry'], catch_exceptions=False)
         with open(os.path.join(str(tmpdir), '.docker/config.json')) as fd:
             data = json.load(fd)
-        assert data['auths']['https://pieroneurl']['auth'] == 'b2F1dGgyOnRvazEyMw=='
-        assert data['auths']['https://someotherregistry']['auth'] == 'b2F1dGgyOnRvazEyMw=='
-        assert config == {'url': 'https://pieroneurl'}
+        assert data['auths'] == {}
+        assert data['credHelpers'] == {
+            'pieroneurl': 'pierone',
+            'someotherregistry': 'pierone',
+        }
 
 
 def test_scm_source(monkeypatch, tmpdir, mock_pierone_api):

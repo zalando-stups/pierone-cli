@@ -5,6 +5,7 @@ import json
 import os
 import time
 from urllib.parse import urlparse
+import warnings
 
 import requests
 from clickclick import Action
@@ -149,8 +150,42 @@ class PierOne:
         )
 
 
+def load_docker_config():
+    path = os.path.expanduser('~/.docker/config.json')
+    try:
+        with open(path) as fd:
+            return json.load(fd)
+    except Exception:
+        return {}
+
+
+def store_docker_config(config):
+    path = os.path.expanduser('~/.docker/config.json')
+    with Action('Storing Docker client configuration in {}..'.format(path)):
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, 'w') as fd:
+            json.dump(config, fd, indent=2)
+
+
+def docker_login_with_credhelper(url):
+    dockercfg = load_docker_config()
+
+    dockercfg['auths'] = dockercfg.get('auths', {})
+    try:
+        del dockercfg['auths'][url]
+    except KeyError:
+        pass
+
+    dockercfg['credHelpers'] = dockercfg.get('credHelpers', {})
+    hostname = urlparse(url).hostname
+    dockercfg['credHelpers'][hostname] = "pierone"
+
+    store_docker_config(dockercfg)
+
+
 # all the other paramaters are deprecated, but still here for compatibility
 def docker_login(url, realm, name, user, password, token_url=None, use_keyring=True, prompt=False):
+    warnings.warn("deprecated", DeprecationWarning)
     with Action('Getting OAuth2 token "{}"..'.format(name)):
         access_token = get_token(name, ['uid', 'application.write'])
     docker_login_with_token(url, access_token)
@@ -158,13 +193,8 @@ def docker_login(url, realm, name, user, password, token_url=None, use_keyring=T
 
 def docker_login_with_token(url, access_token):
     '''Configure docker with existing OAuth2 access token'''
-
-    path = os.path.expanduser('~/.docker/config.json')
-    try:
-        with open(path) as fd:
-            dockercfg = json.load(fd)
-    except Exception:
-        dockercfg = {}
+    warnings.warn("deprecated", DeprecationWarning)
+    dockercfg = load_docker_config()
     basic_auth = codecs.encode('oauth2:{}'.format(access_token).encode('utf-8'), 'base64').strip().decode('utf-8')
 
     dockercfg['auths'] = dockercfg.get('auths', {})
@@ -176,10 +206,7 @@ def docker_login_with_token(url, access_token):
     hostname = urlparse(url).hostname
     dockercfg['credHelpers'][hostname] = ""
 
-    with Action('Storing Docker client configuration in {}..'.format(path)):
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, 'w') as fd:
-            json.dump(dockercfg, fd, indent=2)
+    store_docker_config(dockercfg)
 
 
 def iid_auth():
@@ -191,21 +218,14 @@ def iid_auth():
 
 def docker_login_with_iid(url):
     '''Configure docker with IID auth'''
+    dockercfg = load_docker_config()
 
-    path = os.path.expanduser('~/.docker/config.json')
-    try:
-        with open(path) as fd:
-            dockercfg = json.load(fd)
-    except Exception:
-        dockercfg = {}
     if 'auths' not in dockercfg:
         dockercfg['auths'] = {}
     dockercfg['auths'][url] = {'auth': iid_auth(),
                                'email': 'no-mail-required@example.org'}
-    with Action('Storing Docker client configuration in {}..'.format(path)):
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, 'w') as fd:
-            json.dump(dockercfg, fd)
+
+    store_docker_config(dockercfg)
 
 
 def request(url, path, access_token: str = None,

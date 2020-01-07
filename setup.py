@@ -54,7 +54,7 @@ CLASSIFIERS = [
     'Programming Language :: Python :: Implementation :: CPython',
 ]
 
-CONSOLE_SCRIPTS = ['pierone = pierone.cli:main']
+CONSOLE_SCRIPTS = ['pierone = pierone.cli:main', 'docker-credential-pierone = pierone.credhelper:main']
 
 
 class PyTest(TestCommand):
