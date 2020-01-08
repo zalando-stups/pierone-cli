@@ -1,6 +1,7 @@
 import sys
 import tarfile
 import tempfile
+import shutil
 
 import click
 import requests
@@ -85,6 +86,11 @@ def login(config, url):
 
     if not url_option_was_set:
         stups_cli.config.store_config(config, 'pierone')
+
+    # Check if the credential helper is available
+    if shutil.which("docker-credential-pierone") is None:
+        fatal_error("docker-credential-pierone executable is not available. "
+                    "If you've installed `pierone` to a virtual environment, make sure to add it to to the PATH.")
 
     docker_login_with_credhelper(url)
     ok("Authentication configured for {}, you don't need to run pierone login anymore!".format(url))
