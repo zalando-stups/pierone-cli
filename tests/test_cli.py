@@ -73,6 +73,7 @@ def test_login(monkeypatch, tmpdir):
 
     monkeypatch.setattr('stups_cli.config.load_config', lambda x: {})
     monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
+    monkeypatch.setattr('shutil.which', lambda x: x)
 
     with runner.isolated_filesystem():
         result = runner.invoke(cli, ['login'], catch_exceptions=False, input='pieroneurl\n')
@@ -88,6 +89,7 @@ def test_login_update_config(monkeypatch, tmpdir):
 
     monkeypatch.setattr('stups_cli.config.load_config', lambda x: {})
     monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
+    monkeypatch.setattr('shutil.which', lambda x: x)
 
     with runner.isolated_filesystem():
         os.makedirs(os.path.join(str(tmpdir), ".docker"))
@@ -146,8 +148,8 @@ def test_login_given_url_option(monkeypatch, tmpdir):
 
     monkeypatch.setattr('stups_cli.config.load_config', lambda x: {})
     monkeypatch.setattr('stups_cli.config.store_config', store)
-    monkeypatch.setattr('pierone.api.get_token', MagicMock(return_value='tok123'))
     monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
+    monkeypatch.setattr('shutil.which', lambda x: x)
 
     with runner.isolated_filesystem():
         runner.invoke(cli, ['login'], catch_exceptions=False, input='pieroneurl\n')
