@@ -357,7 +357,7 @@ def scm_source(config, team, artifact, tag, url, output):
             row['created_time'] = parse_time(''.join([d['created'] for d in matching_tag]))
         rows.append(row)
 
-    rows.sort(key=lambda row: (row['tag'], row.get('created_time')))
+    rows.sort(key=lambda row: (row.get('created_time'), row['tag']))
     with OutputFormat(output):
         print_table(['tag', 'author', 'url', 'revision', 'status', 'created_time', 'created_by'], rows,
                     titles={'tag': 'Tag', 'created_by': 'By', 'created_time': 'Created',
