@@ -300,9 +300,9 @@ def describe(config, team, artifact, tag, url):
     else:
         details_box.set("Compliance Information", "Emergency Status", "Not Set")
 
-    base_image = base_image_info.get("name") or "UNKOWN"
+    base_image = base_image_info.get("name") or "UNKNOWN"
     details_box.set("Compliance Information", "Base Image Name", base_image)
-    details_box.set("Compliance Information", "Base Image Allowed", "yes" if base_image_info["allowed"] else "No")
+    details_box.set("Compliance Information", "Base Image Allowed", "Yes" if base_image_info["allowed"] else "No")
     details_box.set("Compliance Information", "Base Image Details", base_image_info["message"])
 
     details_box.render()
