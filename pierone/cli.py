@@ -260,9 +260,6 @@ def describe(config, team, artifact, tag, url):
 
     base_image_info = meta.get_base_image(image)
 
-    underscore_to_title = (lambda s: s.replace('_', ' ').title() if s else "Not Processed")
-    effective_status = underscore_to_title(tag_info.get("status"))
-    checker_status = underscore_to_title(tag_info.get("checker_status"))
     status_details = markdown_2_cli(tag_info.get("checker_status_reason_details") or "")
 
     details_box = DetailsBox()
