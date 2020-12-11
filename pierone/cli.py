@@ -247,6 +247,7 @@ def describe(config, team, artifact, tag, url):
     url = set_pierone_url(config, url)
     registry = get_registry(url)
     api = PierOne(url)
+    meta = DockerMeta()
 
     image = DockerImage(registry=registry, team=team, artifact=artifact, tag=tag)
 
@@ -257,6 +258,11 @@ def describe(config, team, artifact, tag, url):
     except ArtifactNotFound:
         scm_source = None
 
+    base_image_info = meta.get_base_image(image)
+
+    underscore_to_title = (lambda s: s.replace('_', ' ').title() if s else "Not Processed")
+    effective_status = underscore_to_title(tag_info.get("status"))
+    checker_status = underscore_to_title(tag_info.get("checker_status"))
     status_details = markdown_2_cli(tag_info.get("checker_status_reason_details") or "")
 
     details_box = DetailsBox()
@@ -296,6 +302,12 @@ def describe(config, team, artifact, tag, url):
         details_box.set("Compliance Information", "Emergency Status Reason", tag_info["emergency_status_reason"])
     else:
         details_box.set("Compliance Information", "Emergency Status", "Not Set")
+
+    base_image = base_image_info.get("name") or "UNKOWN"
+    details_box.set("Compliance Information", "Base Image Name", base_image)
+    details_box.set("Compliance Information", "Base Image Allowed", "yes" if base_image_info["allowed"] else "No")
+    details_box.set("Compliance Information", "Base Image Details", base_image_info["message"])
+
     details_box.render()
 
 

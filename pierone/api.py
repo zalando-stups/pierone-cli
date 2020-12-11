@@ -21,7 +21,7 @@ session.mount('http://', adapter)
 session.mount('https://', adapter)
 
 
-class PierOne:
+class Service:
 
     def __init__(self, url: str):
         self.url = url if url.startswith("https://") else "https://" + url
@@ -73,6 +73,26 @@ class PierOne:
         except requests.HTTPError as error:
             self._handle_exceptions(error, exceptions)
         return response
+
+
+class DockerMeta(Service):
+
+    def __init__(self):
+        super().__init__("https://docker-meta.stups.zalan.do")
+
+    def get_base_image(self, image: DockerImage) -> dict:
+        path = "/{}/{}/{}:{}/base-image".format(image.registry, image.team, image.artifact, image.tag)
+        response = self._get(
+            path,
+            exceptions={
+                403: Forbidden("get {image}'s base image.", image=image),
+                404: ArtifactNotFound(image)
+            }
+        )
+        return response.json()
+
+
+class PierOne(Service):
 
     def get_tag_info(self, image: DockerImage) -> list:
         """
