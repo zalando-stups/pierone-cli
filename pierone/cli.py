@@ -11,7 +11,7 @@ from clickclick import AliasedGroup, OutputFormat, UrlType, error, fatal_error, 
 from requests import RequestException
 
 import pierone
-from .api import PierOne, docker_login_with_credhelper, get_latest_tag, parse_time, request
+from .api import PierOne, DockerMeta, docker_login_with_credhelper, get_latest_tag, parse_time, request
 from .exceptions import PieroneException, ArtifactNotFound
 from .types import DockerImage
 from .ui import DetailsBox, format_full_image_name, markdown_2_cli
@@ -247,6 +247,7 @@ def describe(config, team, artifact, tag, url):
     url = set_pierone_url(config, url)
     registry = get_registry(url)
     api = PierOne(url)
+    meta = DockerMeta()
 
     image = DockerImage(registry=registry, team=team, artifact=artifact, tag=tag)
 
@@ -256,6 +257,8 @@ def describe(config, team, artifact, tag, url):
         scm_source = api.get_scm_source(image)
     except ArtifactNotFound:
         scm_source = None
+
+    base_image_info = meta.get_base_image(image)
 
     status_details = markdown_2_cli(tag_info.get("checker_status_reason_details") or "")
 
@@ -296,6 +299,12 @@ def describe(config, team, artifact, tag, url):
         details_box.set("Compliance Information", "Emergency Status Reason", tag_info["emergency_status_reason"])
     else:
         details_box.set("Compliance Information", "Emergency Status", "Not Set")
+
+    base_image = base_image_info.get("name") or "UNKNOWN"
+    details_box.set("Compliance Information", "Base Image Name", base_image)
+    details_box.set("Compliance Information", "Base Image Allowed", "Yes" if base_image_info["allowed"] else "No")
+    details_box.set("Compliance Information", "Base Image Details", base_image_info["message"])
+
     details_box.render()
 
 
