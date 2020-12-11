@@ -11,7 +11,7 @@ from clickclick import AliasedGroup, OutputFormat, UrlType, error, fatal_error, 
 from requests import RequestException
 
 import pierone
-from .api import PierOne, docker_login_with_credhelper, get_latest_tag, parse_time, request
+from .api import PierOne, DockerMeta, docker_login_with_credhelper, get_latest_tag, parse_time, request
 from .exceptions import PieroneException, ArtifactNotFound
 from .types import DockerImage
 from .ui import DetailsBox, format_full_image_name, markdown_2_cli
