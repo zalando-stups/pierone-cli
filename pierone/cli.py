@@ -429,7 +429,11 @@ def scm_source(config, team, artifact, tag, url, output):
 @output_option
 @click.pass_obj
 def image(config, image, url, output):
-    '''List tags that point to this image'''
+    """
+    List tags that point to this image
+    NOTE: this is broken for large namespaces
+    """
+    # TODO reimplement with `GET /v2/_catalog` and `GET /v2/<name>/tags/list`
     set_pierone_url(config, url)
     token = get_token()
 
