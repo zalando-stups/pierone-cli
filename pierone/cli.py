@@ -214,10 +214,10 @@ def cves(config, team, artifact, tag, url, output):
 
 
 @cli.command("mark-production-ready")
-@click.argument('incident', callback=validate_incident_id)
-@click.argument('team', callback=validate_team)
-@click.argument('artifact')
-@click.argument('tag')
+@click.argument("incident")
+@click.argument("team", callback=validate_team)
+@click.argument("artifact")
+@click.argument("tag")
 @url_option
 @click.pass_obj
 def mark_production_ready(config, incident, team, artifact, tag, url):
