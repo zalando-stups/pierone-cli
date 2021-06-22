@@ -16,7 +16,7 @@ from .exceptions import PieroneException, ArtifactNotFound
 from .types import DockerImage
 from .ui import DetailsBox, format_full_image_name, markdown_2_cli
 from .utils import get_registry
-from .validators import validate_incident_id, validate_team
+from .validators import validate_team
 
 KEYRING_KEY = 'pierone'
 
@@ -202,15 +202,15 @@ def tags(config, team: str, artifact, url, output, limit):
 
 
 @cli.command()
-@click.argument('team', callback=validate_team)
-@click.argument('artifact')
-@click.argument('tag')
+@click.argument("team", callback=validate_team)
+@click.argument("artifact")
+@click.argument("tag")
 @url_option
 @output_option
 @click.pass_obj
 def cves(config, team, artifact, tag, url, output):
     """DEPRECATED"""
-    print('\x1b[1;33m!! THIS FUNCTIONALITY IS DEPRECATED !!\x1b[0m', file=sys.stderr)
+    print("\x1b[1;33m!! THIS FUNCTIONALITY IS DEPRECATED !!\x1b[0m", file=sys.stderr)
 
 
 @cli.command("mark-production-ready")
