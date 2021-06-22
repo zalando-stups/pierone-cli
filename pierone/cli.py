@@ -237,9 +237,9 @@ def mark_production_ready(config, incident, team, artifact, tag, url):
 
 
 @cli.command()
-@click.argument('team', callback=validate_team)
-@click.argument('artifact')
-@click.argument('tag')
+@click.argument("team", callback=validate_team)
+@click.argument("artifact")
+@click.argument("tag")
 @url_option
 @click.pass_obj
 def describe(config, team, artifact, tag, url):
@@ -253,14 +253,12 @@ def describe(config, team, artifact, tag, url):
 
     tag_info = api.get_tag_info(image)
 
-    try:
-        scm_source = api.get_scm_source(image)
-    except ArtifactNotFound:
-        scm_source = None
+    image_metadata = meta.get_image_metadata(image)
+    ci_info = image_metadata.get("ci")
+    compliance = image_metadata.get("compliance")
+    base_image_info = image_metadata.get("base_image")
 
-    base_image_info = meta.get_base_image(image)
-
-    status_details = markdown_2_cli(tag_info.get("checker_status_reason_details") or "")
+    status_details = markdown_2_cli(compliance.get("checker", {}).get("details", ""))
 
     details_box = DetailsBox()
     details_box.set("General Information", "Team", team)
@@ -268,42 +266,93 @@ def describe(config, team, artifact, tag, url):
     details_box.set("General Information", "Tag", tag)
     details_box.set("General Information", "Author", tag_info["created_by"])
     details_box.set("General Information", "Created in", tag_info["created"])
-    if scm_source:
-        details_box.set("Commit Information", "Repository", scm_source["url"])
-        details_box.set("Commit Information", "Hash", scm_source["revision"])
-        details_box.set("Commit Information", "Time", scm_source["created"])
-        details_box.set("Commit Information", "Author", scm_source["author"])
-        details_box.set("Commit Information", "Status", scm_source["status"])
-        details_box.set("Compliance Information", "Valid SCM Source", scm_source["valid"])
+    if ci_info:
+        details_box.set("Commit Information", "Repository", ci_info["url"])
+        details_box.set("Commit Information", "Hash", ci_info["revision"])
+        details_box.set("Commit Information", "Time", ci_info["created"])
+        details_box.set("Commit Information", "Author", ci_info["author"])
     else:
         details_box.set("Compliance Information", "Valid SCM Source", "No SCM Source")
-    details_box.set("Compliance Information", "Effective Status", tag_info.get("status", "Not Processed"))
-    details_box.set("Compliance Information", "Checker Status", tag_info.get("checker_status", "Not Processed"))
-    details_box.set("Compliance Information", "Checker Status Date", tag_info["checker_status_received_at"])
-    details_box.set("Compliance Information", "Checker Status Reason", tag_info["checker_status_reason"])
+    details_box.set(
+        "Compliance Information",
+        "Effective Status",
+        compliance.get("status", "Not Processed"),
+    )
+    details_box.set(
+        "Compliance Information",
+        "Checker Status",
+        compliance.get("checker", {}).get("status", "Not Processed"),
+    )
+    details_box.set(
+        "Compliance Information",
+        "Checker Status Date",
+        compliance.get("checker", {}).get("received_at", "NOT SET"),
+    )
+    details_box.set(
+        "Compliance Information",
+        "Checker Status Reason",
+        compliance.get("checker", {}).get("reason", "NOT SET"),
+    )
     # TODO make markdown function return a string
-    details_box.set("Compliance Information", "Checker Status Details", status_details if status_details else "")
-    if tag_info.get("user_status"):
-        user_status = tag_info["user_status"]
-        details_box.set("Compliance Information", "User Status", user_status)
-        details_box.set("Compliance Information", "User Status Date", tag_info["user_status_received_at"])
-        details_box.set("Compliance Information", "User Status Reason", tag_info["user_status_reason"])
-        details_box.set("Compliance Information", "User Status Issue", tag_info["user_status_issue"])
-        details_box.set("Compliance Information", "User Status Set by", tag_info["user_status_set_by"])
+    details_box.set(
+        "Compliance Information",
+        "Checker Status Details",
+        status_details if status_details else "",
+    )
+    if compliance.get("user"):
+        user_status = compliance["user"]
+        details_box.set("Compliance Information", "User Status", user_status["status"])
+        details_box.set(
+            "Compliance Information",
+            "User Status Date",
+            user_status["received_at"],
+        )
+        details_box.set(
+            "Compliance Information",
+            "User Status Reason",
+            user_status["reason"],
+        )
+        details_box.set(
+            "Compliance Information",
+            "User Status Issue",
+            # TODO make non-optional after PR merge
+            user_status.get("incident", "NOT SET"),
+        )
+        details_box.set(
+            "Compliance Information",
+            "User Status Set by",
+            user_status["set_by"],
+        )
     else:
         details_box.set("Compliance Information", "User Status", "Not Set")
-    if tag_info.get("emergency_status"):
-        emergency_status = tag_info["emergency_status"]
-        details_box.set("Compliance Information", "Emergency Status", emergency_status)
-        details_box.set("Compliance Information", "Emergency Status Date", tag_info["emergency_status_received_at"])
-        details_box.set("Compliance Information", "Emergency Status Reason", tag_info["emergency_status_reason"])
+    if compliance.get("emergency"):
+        emergency_status = compliance["emergency"]
+        details_box.set(
+            "Compliance Information", "Emergency Status", emergency_status["status"]
+        )
+        details_box.set(
+            "Compliance Information",
+            "Emergency Status Date",
+            emergency_status["received_at"],
+        )
+        details_box.set(
+            "Compliance Information",
+            "Emergency Status Reason",
+            emergency_status["reason"],
+        )
     else:
         details_box.set("Compliance Information", "Emergency Status", "Not Set")
 
     base_image = base_image_info.get("name") or "UNKNOWN"
     details_box.set("Compliance Information", "Base Image Name", base_image)
-    details_box.set("Compliance Information", "Base Image Allowed", "Yes" if base_image_info["allowed"] else "No")
-    details_box.set("Compliance Information", "Base Image Details", base_image_info["message"])
+    details_box.set(
+        "Compliance Information",
+        "Base Image Allowed",
+        "Yes" if base_image_info["allowed"] else "No",
+    )
+    details_box.set(
+        "Compliance Information", "Base Image Details", base_image_info["message"]
+    )
 
     details_box.render()
 

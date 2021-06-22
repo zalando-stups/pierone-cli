@@ -17,17 +17,16 @@ from .utils import get_user_friendly_user_name
 
 adapter = requests.adapters.HTTPAdapter(pool_connections=10, pool_maxsize=10)
 session = requests.Session()
-session.mount('http://', adapter)
-session.mount('https://', adapter)
+session.mount("http://", adapter)
+session.mount("https://", adapter)
 
 
 class Service:
-
     def __init__(self, url: str):
         self.url = url if url.startswith("https://") else "https://" + url
-        self._access_token = get_token('pierone', ['uid'])
+        self._access_token = get_token("pierone", ["uid"])
         self.session = requests.Session()
-        self.session.headers['Authorization'] = 'Bearer {}'.format(self._access_token)
+        self.session.headers["Authorization"] = "Bearer {}".format(self._access_token)
 
     @staticmethod
     def _handle_exceptions(http_error: requests.HTTPError, exceptions: dict):
@@ -57,7 +56,9 @@ class Service:
             self._handle_exceptions(error, exceptions)
         return response
 
-    def _post(self, path, json=None, exceptions: dict = None, *args, **kwargs) -> requests.Response:
+    def _post(
+        self, path, json=None, exceptions: dict = None, *args, **kwargs
+    ) -> requests.Response:
         """
         POSTs things to Pier One.
 
@@ -76,36 +77,42 @@ class Service:
 
 
 class DockerMeta(Service):
-
     def __init__(self):
         super().__init__("https://docker-meta.stups.zalan.do")
 
-    def get_base_image(self, image: DockerImage) -> dict:
-        path = "/{}/{}/{}:{}/base-image".format(image.registry, image.team, image.artifact, image.tag)
+    def get_image_metadata(self, image: DockerImage) -> dict:
+        """
+        Gets all tne image's metadata that Pierone-CLI uses.
+        """
+        path = "/image-metadata/{}/{}/{}:{}".format(
+            image.registry, image.team, image.artifact, image.tag
+        )
         response = self._get(
             path,
+            params={"embed": "(base-image,compliance,ci)"},
             exceptions={
-                403: Forbidden("get {image}'s base image.", image=image),
-                404: ArtifactNotFound(image)
-            }
+                403: Forbidden("get {image}'s metadata.", image=image),
+                404: ArtifactNotFound(image),
+            },
         )
         return response.json()
 
 
 class PierOne(Service):
-
     def get_tag_info(self, image: DockerImage) -> list:
         """
         Gets detailed tag information
         """
-        path = "/teams/{}/artifacts/{}/tags/{}".format(image.team, image.artifact, image.tag)
+        path = "/teams/{}/artifacts/{}/tags/{}".format(
+            image.team, image.artifact, image.tag
+        )
 
         response = self._get(
             path,
             exceptions={
                 403: Forbidden("get {image}'s detailed information", image=image),
-                404: ArtifactNotFound(image)
-            }
+                404: ArtifactNotFound(image),
+            },
         )
         tag_info = response.json()
         created_by = tag_info["created_by"]
@@ -116,17 +123,21 @@ class PierOne(Service):
         """
         Gets all tags for an image.
         """
-        path = "/teams/{team}/artifacts/{artifact}/tags".format(team=image.team, artifact=image.artifact)
+        path = "/teams/{team}/artifacts/{artifact}/tags".format(
+            team=image.team, artifact=image.artifact
+        )
 
         response = self._get(
             path,
             exceptions={
                 403: Forbidden("get all {image}'s tags", image=image),
-                404: ArtifactNotFound(image)
-            }
+                404: ArtifactNotFound(image),
+            },
         )
-        return [parse_pierone_artifact_dict(entry, image.team, image.artifact)
-                for entry in response.json()]
+        return [
+            parse_pierone_artifact_dict(entry, image.team, image.artifact)
+            for entry in response.json()
+        ]
 
     def get_scm_source(self, image: DockerImage) -> dict:
         """
