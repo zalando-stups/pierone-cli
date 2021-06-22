@@ -227,13 +227,20 @@ def mark_production_ready(config, incident, team, artifact, tag, url):
     pierone_url = set_pierone_url(config, url)
     registry = get_registry(pierone_url)
     image = DockerImage(registry, team, artifact, tag)
-    api = PierOne(pierone_url)
-    api.mark_production_ready(image, incident)
+    if incident.startswith("INC-"):
+        # if it's a JIRA ticket mark image as production ready in pierone
+        api = PierOne(pierone_url)
+        api.mark_production_ready(image, incident)
+    else:
+        meta = DockerMeta()
+        meta.mark_production_ready(image, incident)
     if team in ["ci", "automata", "torch"]:
         click.echo("🧙 ", nl=False)
-    click.echo("Marked {} as `production_ready` due to incident {}.".format(
-        format_full_image_name(image), incident
-    ))
+    click.echo(
+        "Marked {} as `production_ready` due to incident {}.".format(
+            format_full_image_name(image), incident
+        )
+    )
 
 
 @cli.command()

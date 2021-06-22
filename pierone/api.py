@@ -1,3 +1,4 @@
+from typing import Optional
 import base64
 import codecs
 import datetime
@@ -79,6 +80,22 @@ class Service:
 class DockerMeta(Service):
     def __init__(self):
         super().__init__("https://docker-meta.stups.zalan.do")
+
+    def mark_production_ready(self, image: DockerImage, incident_id: str, reason: Optional[str]=None):
+        path = "/image-metadata/{}/{}/{}:{}".format(
+            image.registry, image.team, image.artifact, image.tag
+        )
+        payload = {
+            "compliance": {
+                "user": {
+                    "incident": incident_id,
+                    "reason": reason, # TODO pass reason
+                    "status": "production-ready"
+                }
+            }
+        }
+        print(f"PUT {path}")
+        print(payload)
 
     def get_image_metadata(self, image: DockerImage) -> dict:
         """
@@ -266,6 +283,7 @@ def request(url, path, access_token: str = None,
     else:
         headers = {}
 
+    print('{}{}'.format(url, path))
     r = session.request(method, '{}{}'.format(url, path), headers=headers, data=data, timeout=10)
 
     if not_found_is_none and r.status_code == 404:
