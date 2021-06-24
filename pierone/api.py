@@ -30,18 +30,32 @@ class Service:
         self.session.headers["Authorization"] = "Bearer {}".format(self._access_token)
 
     @staticmethod
-    def _handle_exceptions(http_error: requests.HTTPError, exceptions: dict):
+    def _handle_exceptions(http_error: requests.HTTPError, exceptions: Optional[dict]):
         """
         Handles HTTP exceptions by looking for ``http_error``'s status code in ``exceptions`` and
         raising the value, if any, or re-raising the original exception if there isn't a custom one.
         """
+        exceptions = exceptions or {}
         exception = exceptions.get(http_error.response.status_code)
         if exception:
             raise exception
         else:
             raise http_error
 
-    def _get(self, path, exceptions: dict = {}, *args, **kwargs) -> requests.Response:
+    def _request(
+        self, method: str, path: str, exceptions: Optional[dict] = None, *args, **kwargs
+    ) -> requests.Response:
+        url = self.url + path
+        response = self.session.request(method, url, *args, **kwargs)
+        try:
+            response.raise_for_status()
+        except requests.HTTPError as error:
+            self._handle_exceptions(error, exceptions)
+        return response
+
+    def _get(
+        self, path, exceptions: Optional[dict] = None, *args, **kwargs
+    ) -> requests.Response:
         """
         GETs things from Pier One.
 
@@ -49,16 +63,24 @@ class Service:
         ``exceptions`` is a map of status of code and exceptions to be raised if they happen.
         Everything else is passed to the ``session.get`` request.
         """
-        url = self.url + path
-        response = self.session.get(url, *args, **kwargs)
-        try:
-            response.raise_for_status()
-        except requests.HTTPError as error:
-            self._handle_exceptions(error, exceptions)
-        return response
+        return self._request("GET", path, *args, exceptions=exceptions, **kwargs)
+
+    def _put(
+        self, path, json=None, exceptions: Optional[dict] = None, *args, **kwargs
+    ) -> requests.Response:
+        """
+        PUTs things to Pier One and Docker Meta.
+
+        ``path`` will be prepended with the registry's base url.
+        ``exceptions`` is a map of status of code and exceptions to be raised if they happen.
+        Everything else is passed to the ``session.post`` request.
+        """
+        return self._request(
+            "PUT", path, *args, json=json, exceptions=exceptions, **kwargs
+        )
 
     def _post(
-        self, path, json=None, exceptions: dict = None, *args, **kwargs
+        self, path, json=None, exceptions: Optional[dict] = None, *args, **kwargs
     ) -> requests.Response:
         """
         POSTs things to Pier One.
@@ -67,21 +89,18 @@ class Service:
         ``exceptions`` is a map of status of code and exceptions to be raised if they happen.
         Everything else is passed to the ``session.post`` request.
         """
-        exceptions = exceptions or {}
-        url = self.url + path
-        response = self.session.post(url, json=json, *args, **kwargs)
-        try:
-            response.raise_for_status()
-        except requests.HTTPError as error:
-            self._handle_exceptions(error, exceptions)
-        return response
+        return self._request(
+            "POST", path, *args, json=json, exceptions=exceptions, **kwargs
+        )
 
 
 class DockerMeta(Service):
     def __init__(self):
         super().__init__("https://docker-meta.stups.zalan.do")
 
-    def mark_production_ready(self, image: DockerImage, incident_id: str, reason: Optional[str]=None):
+    def mark_production_ready(
+        self, image: DockerImage, incident_id: str, reason: Optional[str] = None
+    ):
         path = "/image-metadata/{}/{}/{}:{}".format(
             image.registry, image.team, image.artifact, image.tag
         )
@@ -89,13 +108,12 @@ class DockerMeta(Service):
             "compliance": {
                 "user": {
                     "incident": incident_id,
-                    "reason": reason, # TODO pass reason
-                    "status": "production-ready"
+                    "reason": reason,
+                    "status": "production-ready",
                 }
             }
         }
-        print(f"PUT {path}")
-        print(payload)
+        self._put(path, json=payload)
 
     def get_image_metadata(self, image: DockerImage) -> dict:
         """
@@ -199,7 +217,7 @@ class PierOne(Service):
 
 
 def load_docker_config():
-    path = os.path.expanduser('~/.docker/config.json')
+    path = os.path.expanduser("~/.docker/config.json")
     try:
         with open(path) as fd:
             return json.load(fd)
@@ -208,10 +226,10 @@ def load_docker_config():
 
 
 def store_docker_config(config):
-    path = os.path.expanduser('~/.docker/config.json')
-    with Action('Storing Docker client configuration in {}..'.format(path)):
+    path = os.path.expanduser("~/.docker/config.json")
+    with Action("Storing Docker client configuration in {}..".format(path)):
         os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, 'w') as fd:
+        with open(path, "w") as fd:
             json.dump(config, fd, indent=2)
 
 
@@ -235,7 +253,7 @@ def docker_login_with_credhelper(url):
 def docker_login(url, realm, name, user, password, token_url=None, use_keyring=True, prompt=False):
     warnings.warn("deprecated", DeprecationWarning)
     with Action('Getting OAuth2 token "{}"..'.format(name)):
-        access_token = get_token(name, ['uid', 'application.write'])
+        access_token = get_token(name, ["uid", "application.write"])
     docker_login_with_token(url, access_token)
 
 
@@ -304,7 +322,7 @@ def image_exists(image: DockerImage, token: str = None) -> bool:
     return image.tag in result
 
 
-def get_latest_tag(image: DockerImage, token: str = None) -> bool:
+def get_latest_tag(image: DockerImage, token: str = None) -> Optional[bool]:
     url = 'https://{}'.format(image.registry)
     path = '/teams/{team}/artifacts/{artifact}/tags'.format(team=image.team, artifact=image.artifact)
 
@@ -344,7 +362,7 @@ def parse_pierone_artifact_dict(original_payload_from_api, team, artifact) -> di
     return parsed_dict
 
 
-def parse_time(s: str) -> float:
+def parse_time(s: str) -> Optional[float]:
     '''
     >>> parse_time('foo')
     time data 'foo' does not match format '%Y-%m-%dT%H:%M:%S.%fZ'
