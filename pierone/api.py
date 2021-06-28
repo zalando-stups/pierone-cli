@@ -69,7 +69,7 @@ class Service:
         self, path, json=None, exceptions: Optional[dict] = None, *args, **kwargs
     ) -> requests.Response:
         """
-        PUTs things to Pier One and Docker Meta.
+        PUTs things to Pierone and Docker Meta.
 
         ``path`` will be prepended with the registry's base url.
         ``exceptions`` is a map of status of code and exceptions to be raised if they happen.
@@ -109,7 +109,7 @@ class DockerMeta(Service):
                 "user": {
                     "incident": incident_id,
                     "reason": reason,
-                    "status": "production-ready",
+                    "status": "production_ready",
                 }
             }
         }
@@ -117,7 +117,7 @@ class DockerMeta(Service):
 
     def get_image_metadata(self, image: DockerImage) -> dict:
         """
-        Gets all tne image's metadata that Pierone-CLI uses.
+        Gets all the image's metadata that Pierone-CLI uses.
         """
         path = "/image-metadata/{}/{}/{}:{}".format(
             image.registry, image.team, image.artifact, image.tag

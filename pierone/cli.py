@@ -228,7 +228,7 @@ def mark_production_ready(config, incident, team, artifact, tag, url):
     registry = get_registry(pierone_url)
     image = DockerImage(registry, team, artifact, tag)
     if incident.startswith("INC-"):
-        # if it's a JIRA ticket mark image as production ready in pierone
+        # if it's a JIRA ticket, mark image as production ready in pierone
         api = PierOne(pierone_url)
         api.mark_production_ready(image, incident)
     else:
