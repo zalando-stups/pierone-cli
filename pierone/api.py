@@ -12,7 +12,14 @@ import requests
 from clickclick import Action
 from zign.api import get_token
 
-from .exceptions import ArtifactNotFound, Forbidden, Conflict, UnprocessableEntity
+from .exceptions import (
+    ArtifactNotFound,
+    Forbidden,
+    Conflict,
+    UnprocessableEntity,
+    APIException,
+    MarkProductionReadyRejected,
+)
 from .types import DockerImage
 from .utils import get_user_friendly_user_name
 
@@ -36,8 +43,9 @@ class Service:
         raising the value, if any, or re-raising the original exception if there isn't a custom one.
         """
         exceptions = exceptions or {}
-        exception = exceptions.get(http_error.response.status_code)
+        exception: APIException = exceptions.get(http_error.response.status_code)
         if exception:
+            exception.response = http_error.response
             raise exception
         else:
             raise http_error
@@ -113,7 +121,15 @@ class DockerMeta(Service):
                 }
             }
         }
-        self._put(path, json=payload)
+        self._put(
+            path,
+            json=payload,
+            exceptions={
+                400: MarkProductionReadyRejected(
+                    "mark {image} as production ready", image=image
+                )
+            },
+        )
 
     def get_image_metadata(self, image: DockerImage) -> dict:
         """
@@ -126,7 +142,7 @@ class DockerMeta(Service):
             path,
             params={"embed": "(base-image,compliance,ci)"},
             exceptions={
-                403: Forbidden("get {image}'s metadata.", image=image),
+                403: Forbidden("get {image}'s metadata", image=image),
                 404: ArtifactNotFound(image),
             },
         )
@@ -178,13 +194,15 @@ class PierOne(Service):
         """
         GETs ``image``s scm_source
         """
-        path = "/teams/{}/artifacts/{}/tags/{}/scm-source".format(image.team, image.artifact, image.tag)
+        path = "/teams/{}/artifacts/{}/tags/{}/scm-source".format(
+            image.team, image.artifact, image.tag
+        )
         response = self._get(
             path,
             exceptions={
                 403: Forbidden("get {image}'s scm source", image=image),
-                404: ArtifactNotFound(image)
-            }
+                404: ArtifactNotFound(image),
+            },
         )
         return response.json()
 
@@ -192,11 +210,13 @@ class PierOne(Service):
         """
         GETs all ``teams``'s artifacts.
         """
-        response = self._get('/teams/{}/artifacts'.format(team))
+        response = self._get("/teams/{}/artifacts".format(team))
         return response.json()
 
     def mark_production_ready(self, image: DockerImage, incident_id: str):
-        path = "/teams/{}/artifacts/{}/tags/{}/production-ready".format(image.team, image.artifact, image.tag)
+        path = "/teams/{}/artifacts/{}/tags/{}/production-ready".format(
+            image.team, image.artifact, image.tag
+        )
         payload = {"incident_id": incident_id}
         self._post(
             path,
@@ -206,13 +226,13 @@ class PierOne(Service):
                 404: ArtifactNotFound(image),
                 409: Conflict(
                     "mark {image} as production ready because the flag is already set",
-                    image=image
+                    image=image,
                 ),
                 422: UnprocessableEntity(
                     "mark {image} as production ready because it doesn't have a SCM Source",
-                    image=image
-                )
-            }
+                    image=image,
+                ),
+            },
         )
 
 
@@ -236,21 +256,23 @@ def store_docker_config(config):
 def docker_login_with_credhelper(url):
     dockercfg = load_docker_config()
 
-    dockercfg['auths'] = dockercfg.get('auths', {})
+    dockercfg["auths"] = dockercfg.get("auths", {})
     try:
-        del dockercfg['auths'][url]
+        del dockercfg["auths"][url]
     except KeyError:
         pass
 
-    dockercfg['credHelpers'] = dockercfg.get('credHelpers', {})
+    dockercfg["credHelpers"] = dockercfg.get("credHelpers", {})
     hostname = urlparse(url).hostname
-    dockercfg['credHelpers'][hostname] = "pierone"
+    dockercfg["credHelpers"][hostname] = "pierone"
 
     store_docker_config(dockercfg)
 
 
 # all the other paramaters are deprecated, but still here for compatibility
-def docker_login(url, realm, name, user, password, token_url=None, use_keyring=True, prompt=False):
+def docker_login(
+    url, realm, name, user, password, token_url=None, use_keyring=True, prompt=False
+):
     warnings.warn("deprecated", DeprecationWarning)
     with Action('Getting OAuth2 token "{}"..'.format(name)):
         access_token = get_token(name, ["uid", "application.write"])
@@ -258,51 +280,67 @@ def docker_login(url, realm, name, user, password, token_url=None, use_keyring=T
 
 
 def docker_login_with_token(url, access_token):
-    '''Configure docker with existing OAuth2 access token'''
+    """Configure docker with existing OAuth2 access token"""
     warnings.warn("deprecated", DeprecationWarning)
     dockercfg = load_docker_config()
-    basic_auth = codecs.encode('oauth2:{}'.format(access_token).encode('utf-8'), 'base64').strip().decode('utf-8')
+    basic_auth = (
+        codecs.encode("oauth2:{}".format(access_token).encode("utf-8"), "base64")
+        .strip()
+        .decode("utf-8")
+    )
 
-    dockercfg['auths'] = dockercfg.get('auths', {})
-    dockercfg['auths'][url] = {'auth': basic_auth,
-                               'email': 'no-mail-required@example.org'}
+    dockercfg["auths"] = dockercfg.get("auths", {})
+    dockercfg["auths"][url] = {
+        "auth": basic_auth,
+        "email": "no-mail-required@example.org",
+    }
 
     # Explicitly disable credential helpers for the host in URL
-    dockercfg['credHelpers'] = dockercfg.get('credHelpers', {})
+    dockercfg["credHelpers"] = dockercfg.get("credHelpers", {})
     hostname = urlparse(url).hostname
-    dockercfg['credHelpers'][hostname] = ""
+    dockercfg["credHelpers"][hostname] = ""
 
     store_docker_config(dockercfg)
 
 
 def iid_auth():
-    '''Return AWS instance identity document encoded as a Pier One atuh token'''
-    pkcs7 = request('http://169.254.169.254', '/latest/dynamic/instance-identity/pkcs7')
-    basic_auth = 'instance-identity-document:{}'.format(pkcs7.text).encode('utf-8')
-    return base64.b64encode(basic_auth).decode('utf-8')
+    """Return AWS instance identity document encoded as a Pier One atuh token"""
+    pkcs7 = request("http://169.254.169.254", "/latest/dynamic/instance-identity/pkcs7")
+    basic_auth = "instance-identity-document:{}".format(pkcs7.text).encode("utf-8")
+    return base64.b64encode(basic_auth).decode("utf-8")
 
 
 def docker_login_with_iid(url):
-    '''Configure docker with IID auth'''
+    """Configure docker with IID auth"""
     dockercfg = load_docker_config()
 
-    if 'auths' not in dockercfg:
-        dockercfg['auths'] = {}
-    dockercfg['auths'][url] = {'auth': iid_auth(),
-                               'email': 'no-mail-required@example.org'}
+    if "auths" not in dockercfg:
+        dockercfg["auths"] = {}
+    dockercfg["auths"][url] = {
+        "auth": iid_auth(),
+        "email": "no-mail-required@example.org",
+    }
 
     store_docker_config(dockercfg)
 
 
-def request(url, path, access_token: str = None,
-            not_found_is_none: bool = False, method: str = 'GET', data=None) -> requests.Response:
+def request(
+    url,
+    path,
+    access_token: str = None,
+    not_found_is_none: bool = False,
+    method: str = "GET",
+    data=None,
+) -> requests.Response:
     if access_token:
-        headers = {'Authorization': 'Bearer {}'.format(access_token)}
+        headers = {"Authorization": "Bearer {}".format(access_token)}
     else:
         headers = {}
 
-    print('{}{}'.format(url, path))
-    r = session.request(method, '{}{}'.format(url, path), headers=headers, data=data, timeout=10)
+    print("{}{}".format(url, path))
+    r = session.request(
+        method, "{}{}".format(url, path), headers=headers, data=data, timeout=10
+    )
 
     if not_found_is_none and r.status_code == 404:
         return None
@@ -312,8 +350,10 @@ def request(url, path, access_token: str = None,
 
 
 def image_exists(image: DockerImage, token: str = None) -> bool:
-    url = 'https://{}'.format(image.registry)
-    path = '/v1/repositories/{team}/{artifact}/tags'.format(team=image.team, artifact=image.artifact)
+    url = "https://{}".format(image.registry)
+    path = "/v1/repositories/{team}/{artifact}/tags".format(
+        team=image.team, artifact=image.artifact
+    )
 
     r = request(url, path, token, True)
     if r is None:
@@ -323,15 +363,17 @@ def image_exists(image: DockerImage, token: str = None) -> bool:
 
 
 def get_latest_tag(image: DockerImage, token: str = None) -> Optional[bool]:
-    url = 'https://{}'.format(image.registry)
-    path = '/teams/{team}/artifacts/{artifact}/tags'.format(team=image.team, artifact=image.artifact)
+    url = "https://{}".format(image.registry)
+    path = "/teams/{team}/artifacts/{artifact}/tags".format(
+        team=image.team, artifact=image.artifact
+    )
 
     r = request(url, path, token, True)
     if r is None:
         return None
     result = r.json()
     if result:
-        return sorted(result, key=lambda x: x['created'])[-1]['name']
+        return sorted(result, key=lambda x: x["created"])[-1]["name"]
     else:
         return None
 
@@ -351,28 +393,32 @@ def parse_pierone_artifact_dict(original_payload_from_api, team, artifact) -> di
         "status_reason": "Not Processed",
     }
     parsed_dict.update(original_payload_from_api)
-    parsed_dict['team'] = team
-    parsed_dict['artifact'] = artifact
-    parsed_dict['tag'] = original_payload_from_api['name']
-    created_by = original_payload_from_api['created_by']
-    parsed_dict['created_by'] = get_user_friendly_user_name(created_by)
-    parsed_dict['created_time'] = parse_time(original_payload_from_api['created'])
-    status_received_at = original_payload_from_api.get('status_received_at')
-    parsed_dict['status_time'] = parse_time(status_received_at) if status_received_at else 'N/A'
+    parsed_dict["team"] = team
+    parsed_dict["artifact"] = artifact
+    parsed_dict["tag"] = original_payload_from_api["name"]
+    created_by = original_payload_from_api["created_by"]
+    parsed_dict["created_by"] = get_user_friendly_user_name(created_by)
+    parsed_dict["created_time"] = parse_time(original_payload_from_api["created"])
+    status_received_at = original_payload_from_api.get("status_received_at")
+    parsed_dict["status_time"] = (
+        parse_time(status_received_at) if status_received_at else "N/A"
+    )
     return parsed_dict
 
 
 def parse_time(s: str) -> Optional[float]:
-    '''
+    """
     >>> parse_time('foo')
     time data 'foo' does not match format '%Y-%m-%dT%H:%M:%S.%fZ'
     >>> parse_time('2015-04-14T19:09:01.000Z') > 0
     True
-    '''
+    """
     try:
-        utc = datetime.datetime.strptime(s, '%Y-%m-%dT%H:%M:%S.%fZ')
+        utc = datetime.datetime.strptime(s, "%Y-%m-%dT%H:%M:%S.%fZ")
         ts = time.time()
-        utc_offset = datetime.datetime.fromtimestamp(ts) - datetime.datetime.utcfromtimestamp(ts)
+        utc_offset = datetime.datetime.fromtimestamp(
+            ts
+        ) - datetime.datetime.utcfromtimestamp(ts)
         local = utc + utc_offset
         return local.timestamp()
     except Exception as e:
