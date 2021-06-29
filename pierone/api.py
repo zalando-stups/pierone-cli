@@ -127,7 +127,8 @@ class DockerMeta(Service):
             exceptions={
                 400: MarkProductionReadyRejected(
                     "mark {image} as production ready", image=image
-                )
+                ),
+                404: ArtifactNotFound(image),
             },
         )
 
@@ -337,7 +338,6 @@ def request(
     else:
         headers = {}
 
-    print("{}{}".format(url, path))
     r = session.request(
         method, "{}{}".format(url, path), headers=headers, data=data, timeout=10
     )
