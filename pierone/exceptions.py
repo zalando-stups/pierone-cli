@@ -49,7 +49,10 @@ class ArtifactNotFound(APIException):
     """
     def __init__(self, image: DockerImage):
         self.image = image
-        self.message = "{} doesn't exist.".format(format_full_image_name(self.image))
+
+    @property
+    def message(self):
+        return "{} doesn't exist.".format(format_full_image_name(self.image))
 
 
 class Forbidden(APIException):
