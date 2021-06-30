@@ -65,7 +65,7 @@ class Service:
         self, path, exceptions: Optional[dict] = None, *args, **kwargs
     ) -> requests.Response:
         """
-        GETs things from Pier One.
+        GETs things from Pierone.
 
         ``path`` will be prepended with the registry's base url.
         ``exceptions`` is a map of status of code and exceptions to be raised if they happen.
