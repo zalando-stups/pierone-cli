@@ -4,8 +4,8 @@ from unittest.mock import MagicMock, ANY
 
 import yaml
 import pytest
-from pierone.api import docker_login, docker_login_with_iid, PierOne, get_latest_tag, image_exists
-from pierone.exceptions import ArtifactNotFound, Forbidden, UnprocessableEntity, Conflict
+from pierone.api import docker_login, docker_login_with_iid, PierOne, get_latest_tag, image_exists, DockerMeta
+from pierone.exceptions import ArtifactNotFound, Forbidden, MarkProductionReadyRejected
 from pierone.types import DockerImage
 
 import requests.exceptions
@@ -329,30 +329,29 @@ def test_get_artifacts():
 
 def test_mark_production_ready():
     image = DockerImage(registry='registry', team='foo', artifact='bar', tag=None)
-    api = PierOne('registry')
-    api.session.post = MagicMock()
+    api = DockerMeta()
+    api.session.request = MagicMock()
     api.mark_production_ready(image, "INC-42")
-    api.session.post.assert_called_once_with(
-        'https://registry/teams/foo/artifacts/bar/tags/None/production-ready',
-        json={'incident_id': 'INC-42'}
+    api.session.request.assert_called_once_with(
+        "PUT",
+        "https://docker-meta.stups.zalan.do/image-metadata/registry/foo/bar:None",
+        json={
+            "compliance": {
+                "user": {
+                    "incident": 'INC-42', "reason": None, "status": "production_ready"
+                }
+            }
+        }
     )
 
-    api.session.post = MagicMock(return_value=make_error_response(404))
+    api.session.request = MagicMock(return_value=make_error_response(404))
     with pytest.raises(ArtifactNotFound):
         api.mark_production_ready(image, "INC-42")
 
-    api.session.post = MagicMock(return_value=make_error_response(500))
+    api.session.request = MagicMock(return_value=make_error_response(500))
     with pytest.raises(requests.HTTPError):
         api.mark_production_ready(image, "INC-42")
 
-    api.session.post = MagicMock(return_value=make_error_response(403))
-    with pytest.raises(Forbidden):
-        api.mark_production_ready(image, "INC-42")
-
-    api.session.post = MagicMock(return_value=make_error_response(409))
-    with pytest.raises(Conflict):
-        api.mark_production_ready(image, "INC-42")
-
-    api.session.post = MagicMock(return_value=make_error_response(422))
-    with pytest.raises(UnprocessableEntity):
+    api.session.request = MagicMock(return_value=make_error_response(400))
+    with pytest.raises(MarkProductionReadyRejected):
         api.mark_production_ready(image, "INC-42")

@@ -5,17 +5,7 @@ from hypothesis import given
 from hypothesis.strategies import text, lists, integers
 import pytest
 
-from pierone.validators import validate_incident_id, validate_team
-
-@given(
-    valid_incident_number=integers(0, 100000),
-    invalid_incident_id=text(string.ascii_letters)
-)
-def test_validate_incident_id(valid_incident_number, invalid_incident_id):
-    valid_incident_id = "INC-{}".format(valid_incident_number)
-    assert validate_incident_id(None, None, valid_incident_id) == valid_incident_id
-    with pytest.raises(click.BadParameter):
-        validate_incident_id(None, None, invalid_incident_id)
+from pierone.validators import validate_team
 
 @given(
     lower_case_letter=text(string.ascii_lowercase, min_size=1, max_size=1),
