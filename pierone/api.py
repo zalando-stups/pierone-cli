@@ -81,7 +81,7 @@ class Service:
 
         ``path`` will be prepended with the registry's base url.
         ``exceptions`` is a map of status of code and exceptions to be raised if they happen.
-        Everything else is passed to the ``session.post`` request.
+        Everything else is passed to the ``session.put`` request.
         """
         return self._request(
             "PUT", path, *args, json=json, exceptions=exceptions, **kwargs
@@ -91,7 +91,7 @@ class Service:
         self, path, json=None, exceptions: Optional[dict] = None, *args, **kwargs
     ) -> requests.Response:
         """
-        POSTs things to Pier One.
+        POSTs things to Pierone.
 
         ``path`` will be prepended with the registry's base url.
         ``exceptions`` is a map of status of code and exceptions to be raised if they happen.
@@ -332,7 +332,7 @@ def request(
     not_found_is_none: bool = False,
     method: str = "GET",
     data=None,
-) -> requests.Response:
+) -> Optional[requests.Response]:
     if access_token:
         headers = {"Authorization": "Bearer {}".format(access_token)}
     else:
