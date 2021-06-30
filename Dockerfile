@@ -1,6 +1,6 @@
 # Hack to upload version to Pypi
 
-FROM registry.opensource.zalan.do/stups/python AS builder
+FROM registry.opensource.zalan.do/library/python-3.9 AS builder
 ARG VERSION
 RUN apt-get update && \
     apt-get install -q -y python3-pip && \
