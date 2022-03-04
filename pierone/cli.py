@@ -35,17 +35,6 @@ def print_version(ctx, param, value):
     ctx.exit()
 
 
-def validate_pierone_url(url: str) -> None:
-    ping_url = url.rstrip('/') + '/swagger.json'
-    try:
-        response = requests.get(ping_url, timeout=5)
-        response.raise_for_status()
-        if 'Pier One API' not in response.text:
-            fatal_error('ERROR: Did not find a valid Pier One registry at {}'.format(url))
-    except RequestException:
-        fatal_error('ERROR: Could not reach {}'.format(ping_url))
-
-
 def set_pierone_url(config: dict, url: str) -> str:
     '''Read Pier One URL from cli, from config file or from stdin.'''
     url = url or config.get('url')
@@ -63,7 +52,6 @@ def set_pierone_url(config: dict, url: str) -> str:
         # issue 63: gracefully handle URLs without scheme
         url = 'https://{}'.format(url)
 
-    validate_pierone_url(url)
     config['url'] = url
     return url
 

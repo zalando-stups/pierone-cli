@@ -110,34 +110,6 @@ def test_login_update_config(monkeypatch, tmpdir):
         assert data['credHelpers'] == {'pieroneurl': 'pierone'}
 
 
-def test_invalid_url_for_login(monkeypatch, tmpdir):
-    runner = CliRunner()
-    response = MagicMock()
-
-    monkeypatch.setattr('stups_cli.config.load_config', lambda x: {})
-    monkeypatch.setattr('pierone.api.get_token', MagicMock(return_value='tok123'))
-    monkeypatch.setattr('os.path.expanduser', lambda x: x.replace('~', str(tmpdir)))
-
-    # Missing Pier One header
-    response.text = 'Not valid API'
-    monkeypatch.setattr('requests.get', lambda *args, **kw: response)
-
-    with runner.isolated_filesystem():
-        result = runner.invoke(cli, ['login'], catch_exceptions=False, input='pieroneurl\n')
-        assert 'ERROR: Did not find a valid Pier One registry at https://pieroneurl' in result.output
-        assert result.exit_code == 1
-        assert not os.path.exists(os.path.join(str(tmpdir), '.docker/config.json'))
-
-    # Not a valid header
-    response.raise_for_status = MagicMock(side_effect=RequestException)
-    monkeypatch.setattr('requests.get', lambda *args, **kw: response)
-    with runner.isolated_filesystem():
-        result = runner.invoke(cli, ['login'], catch_exceptions=False, input='pieroneurl\n')
-        assert 'ERROR: Could not reach https://pieroneurl' in result.output
-        assert result.exit_code == 1
-        assert not os.path.exists(os.path.join(str(tmpdir), '.docker/config.json'))
-
-
 def test_login_given_url_option(monkeypatch, tmpdir):
     runner = CliRunner()
 
