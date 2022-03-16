@@ -264,7 +264,9 @@ def describe(config, team, artifact, tag, url):
     if ci_info:
         details_box.set("Commit Information", "Repository", ci_info["url"])
         details_box.set("Commit Information", "Hash", ci_info["revision"])
-        details_box.set("Commit Information", "Time", ci_info["created"])
+        commit_created = ci_info.get("created")
+        if commit_created:
+            details_box.set("Commit Information", "Time", commit_created)
         details_box.set("Commit Information", "Author", ci_info["author"])
     else:
         details_box.set("Compliance Information", "Valid SCM Source", "No SCM Source")
