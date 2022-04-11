@@ -1,3 +1,5 @@
+**DEPRECATED**: This tool is no longer being developed as an open source project.
+
 ============
 Pier One CLI
 ============
